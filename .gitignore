@@ -27,6 +27,10 @@ dist-ssr
 # Redundant nested clone (parent folder is the repo)
 /Cyber-Sentinel-ai/
 
+# Unrelated nested app checked into this folder by accident
+/dailyus/
+/dailyus.freebuff/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

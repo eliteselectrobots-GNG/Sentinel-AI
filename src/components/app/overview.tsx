@@ -1,7 +1,8 @@
 import { AlertTriangle, ArrowUpRight, CheckCircle2, ChevronRight, Database, Fingerprint, FlaskConical, ListTree, MailWarning, Network, Route, Server, Share2, ShieldCheck, Zap } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
+import { useReveal } from "@/hooks/use-motion";
 import { timeAgo, Bar, Card, CardHeader, ClassTag, DemoTag, DotLegend, EmptyState, GeoLine, InfraChips, PageHeader, SeverityBadge, Stat, type PageKey } from "./ui";
 import { severityDistribution, campaignClusters } from "@/lib/stats";
 import type { StoredScan } from "@/lib/store";
@@ -99,7 +100,7 @@ function QuickAccess({ scans, navigate, openScanner, loadDemo }: { scans: Stored
               }}
               className="group flex items-start gap-3 bg-surface p-4 text-left transition-colors hover:bg-surface-elevated"
             >
-              <span className="flex size-8 shrink-0 items-center justify-center border border-brand/30 bg-brand/10 text-brand transition-colors group-hover:bg-brand/20">
+              <span className="tile-icon flex size-8 shrink-0 items-center justify-center border border-brand/30 bg-brand/10 text-brand transition-colors group-hover:bg-brand/20">
                 <Icon className="size-4" />
               </span>
               <span className="min-w-0 flex-1">
@@ -110,7 +111,7 @@ function QuickAccess({ scans, navigate, openScanner, loadDemo }: { scans: Stored
           );
         })}
         <button onClick={loadDemo} className="group flex items-start gap-3 border border-dashed border-border/70 bg-transparent p-4 text-left transition-colors hover:border-brand/40 hover:bg-brand/5">
-          <span className="flex size-8 shrink-0 items-center justify-center border border-brand/30 bg-brand/10 text-brand"><FlaskConical className="size-4" /></span>
+          <span className="tile-icon flex size-8 shrink-0 items-center justify-center border border-brand/30 bg-brand/10 text-brand"><FlaskConical className="size-4" /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-semibold text-foreground">Demo dataset</span>
             <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">Load sample evidence</span>
@@ -124,13 +125,14 @@ function QuickAccess({ scans, navigate, openScanner, loadDemo }: { scans: Stored
 /* --------------------------------- Page ----------------------------------- */
 
 export function OverviewPage({ scans, openScanner, openCase, navigate, notify, loadDemo }: { scans: StoredScan[]; openScanner: () => void; openCase: (id: string) => void; navigate: (page: PageKey) => void; notify: (msg: string) => void; loadDemo: () => void }) {
+  const revealRef = useReveal<HTMLDivElement>();
   const distribution = severityDistribution(scans);
   const latest = scans[0];
   const clusters = campaignClusters(scans).filter((c) => c.count >= 2);
   const criticalCount = scans.filter((scan) => scan.result.riskLabel === "Critical").length;
 
   return (
-    <>
+    <div ref={revealRef}>
       <PageHeader
         title="Threat operations overview"
         description="One workspace to scan, triage, investigate, and report — everything computed from local evidence."
@@ -166,14 +168,14 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
       <PriorityBanner scans={scans} openCase={openCase} />
       <QuickAccess scans={scans} navigate={navigate} openScanner={openScanner} loadDemo={loadDemo} />
 
-      <section className="mb-6 grid gap-px border border-border bg-border sm:grid-cols-2 xl:grid-cols-4" aria-label="Live summary">
+      <section className="reveal mb-6 grid gap-px border border-border bg-border sm:grid-cols-2 xl:grid-cols-4" aria-label="Live summary" style={{ "--reveal-delay": "60ms" } as CSSProperties}>
         <Stat label="Emails analyzed" value={String(scans.length)} sub={scans.length === 0 ? "no scans yet" : `${scans.length === 1 ? "record" : "records"} stored locally`} icon={MailWarning} tone="brand" />
         <Stat label="Latest risk index" value={latest ? String(latest.result.riskScore) : "—"} suffix={latest ? "/100" : ""} sub={latest ? `${latest.result.riskLabel} · ${timeAgo(latest.scannedAt)}` : "no scans yet"} icon={Zap} tone={latest?.result.riskLabel === "Critical" ? "critical" : latest?.result.riskLabel === "High" ? "warning" : "brand"} />
         <Stat label="Critical alerts" value={String(criticalCount)} sub={criticalCount === 1 ? "needs review" : criticalCount > 1 ? "need review" : "none open"} icon={AlertTriangle} tone={criticalCount > 0 ? "critical" : "brand"} />
         <Stat label="Evidence fingerprints" value={String(scans.length)} sub="SHA-256 · local" icon={Fingerprint} tone="safe" />
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)]">
+      <div className="reveal grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)]" style={{ "--reveal-delay": "120ms" } as CSSProperties}>
         <Card labelledBy="queue-heading">
           <CardHeader
             id="queue-heading"
@@ -185,8 +187,8 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
             <EmptyState title="No investigations yet" detail="Analyze an email to start your first case, or load the demo dataset to see the full workflow." action={<Button size="sm" onClick={openScanner}>Analyze email</Button>} />
           ) : (
             <div className="divide-y divide-border">
-              {scans.slice(0, 8).map((scan) => (
-                <button key={scan.id} onClick={() => openCase(scan.id)} className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-elevated sm:gap-4">
+              {scans.slice(0, 8).map((scan, index) => (
+                <button key={scan.id} style={{ "--row-delay": `${Math.min(index, 6) * 45}ms` } as React.CSSProperties} onClick={() => openCase(scan.id)} className="row-enter flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-elevated sm:gap-4">
                   <div className={`flex size-9 shrink-0 items-center justify-center text-[11px] font-semibold ${scan.result.riskLabel === "Critical" ? "bg-status-critical/15 text-status-critical" : scan.result.riskLabel === "High" ? "bg-status-warning/15 text-status-warning" : scan.result.riskLabel === "Medium" ? "bg-brand/10 text-brand" : "bg-status-safe/10 text-status-safe"}`}>
                     {scan.result.sender.slice(0, 2).toUpperCase()}
                   </div>
@@ -250,7 +252,7 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(330px,0.7fr)]">
+      <div className="reveal mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(330px,0.7fr)]" style={{ "--reveal-delay": "180ms" } as CSSProperties}>
         <RelayTraceCard scans={scans} navigate={navigate} />
         <Card labelledBy="campaign-heading">
           <CardHeader id="campaign-heading" title="Campaign intelligence" subtitle="Infrastructure shared across cases" right={<Button variant="ghost" size="icon" aria-label="Open campaign graph" onClick={() => navigate("campaign")}><Share2 className="size-4" /></Button>} />
@@ -273,7 +275,7 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
         </Card>
       </div>
 
-      <section className="mt-6 border border-border bg-surface" aria-labelledby="integrity-heading">
+      <section className="reveal mt-6 border border-border bg-surface" aria-labelledby="integrity-heading" style={{ "--reveal-delay": "220ms" } as CSSProperties}>
         <div className="grid sm:grid-cols-3">
           <div className="flex items-center gap-4 border-b border-border p-5 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
             <div className="flex size-9 items-center justify-center bg-brand/10 text-brand"><Fingerprint className="size-4" /></div>
@@ -289,7 +291,7 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }
 

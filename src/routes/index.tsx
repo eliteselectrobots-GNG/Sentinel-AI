@@ -384,7 +384,7 @@ function AegisTraceShell() {
           </div>
         </header>
 
-        <div className="mx-auto max-w-[1600px] px-5 py-7 lg:px-8 lg:py-9">{renderPage()}</div>
+        <div key={page} className="page-enter mx-auto max-w-[1600px] px-5 py-7 lg:px-8 lg:py-9">{renderPage()}</div>
       </main>
     </div>
   );

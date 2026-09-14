@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "Sentinel AI — Email Threat Sentinel",
+  "short_name": "Sentinel AI",
+  "version": "1.0.0",
+  "version_name": "1.0.0",
+  "description": "Real-time phishing, fraud, and impersonation detection for webmail. Every email you open is scanned locally — dangerous messages get a clear warning with precaution and delete actions.",
+  "author": "Sentinel AI Team",
+  "homepage_url": "https://github.com/eliteselectrobots-GNG/Cyber-Sentinel-ai",
+  "permissions": ["storage", "sidePanel"],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "https://outlook.live.com/*",
+    "https://mail.yahoo.com/*",
+    "https://cloudflare-dns.com/*",
+    "https://ipwho.is/*",
+    "https://rdap.org/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "side_panel": {
+    "default_path": "ui/side-panel.html"
+  },
+  "action": {
+    "default_popup": "ui/popup.html",
+    "default_title": "Sentinel AI",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*",
+        "https://outlook.live.com/*",
+        "https://outlook.com/*",
+        "https://mail.yahoo.com/*",
+        "https://*.mail.yahoo.com/*"
+      ],
+      "js": [
+        "engine/detection-bundle.js",
+        "content/chrome-storage.js",
+        "content/providers.js",
+        "content/adaptor.js",
+        "content/injector.js"
+      ],
+      "css": ["styles/content-overlay.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "minimum_chrome_version": "116"
+}

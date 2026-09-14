@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sentinel AI — Analysis</title>
+    <link rel="stylesheet" href="side-panel.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <span class="mark">🛡️</span>
+        <div>
+          <div class="name">SENTINEL AI</div>
+          <div class="sub">Email Threat Sentinel</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span class="local-note" title="All analysis runs in your browser">🔒 local</span>
+        <button id="clearBtn" class="icon-btn" title="Clear history">🗑️</button>
+      </div>
+    </header>
+
+    <div id="empty" class="empty hidden">
+      <div class="empty-icon">📭</div>
+      <div class="empty-text">No emails scanned yet.</div>
+      <div class="empty-hint">Open a message in Gmail, Outlook or Yahoo webmail and the Sentinel will analyse it automatically.</div>
+    </div>
+
+    <div id="content" class="content hidden">
+      <select id="scanSelect" class="scan-select" title="Scanned messages"></select>
+
+      <div class="verdict-card">
+        <div class="dials">
+          <div class="dial-wrap">
+            <div id="scoreDial" class="dial">0</div>
+            <div class="dial-label">risk score</div>
+          </div>
+          <div class="v-main">
+            <div id="vClass" class="v-class">—</div>
+            <div id="vVerdict" class="v-verdict"></div>
+            <div id="vConf" class="v-conf"></div>
+          </div>
+        </div>
+        <div id="vBrief" class="v-brief"></div>
+        <div class="v-meta">
+          <div id="vSender" class="v-sender"></div>
+          <div id="vSubject" class="v-subject"></div>
+          <div id="vTime" class="v-time"></div>
+          <div id="vCase" class="v-case"></div>
+        </div>
+        <div class="v-hash-row">
+          <code id="vHash" class="v-hash"></code>
+          <span id="vHashState" class="v-hash-state"></span>
+        </div>
+        <div id="vAnomalies" class="v-anomalies"></div>
+      </div>
+
+      <div id="tabs" class="tabs" role="tablist">
+        <button class="tab active" data-tab="summary">Summary</button>
+        <button class="tab" data-tab="evidence">Evidence</button>
+        <button class="tab" data-tab="domains">Domains</button>
+        <button class="tab" data-tab="sender">Sender</button>
+        <button class="tab" data-tab="precautions">Precautions</button>
+        <button class="tab" data-tab="raw">Raw</button>
+      </div>
+
+      <div id="tab-summary" class="tabpane active"></div>
+      <div id="tab-evidence" class="tabpane"></div>
+      <div id="tab-domains" class="tabpane"></div>
+      <div id="tab-sender" class="tabpane"></div>
+      <div id="tab-precautions" class="tabpane"></div>
+      <div id="tab-raw" class="tabpane"></div>
+    </div>
+
+    <script src="../engine/detection-bundle.js"></script>
+    <script src="shared-storage.js"></script>
+    <script src="side-panel.js"></script>
+  </body>
+</html>

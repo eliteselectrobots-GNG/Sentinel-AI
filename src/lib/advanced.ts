@@ -77,7 +77,36 @@ export type Briefing = {
 const ORG_NAME_KEY = "aegistrace.org-name";
 const ORG_DOMAIN_KEY = "aegistrace.org-domain";
 
+/**
+ * Optional synchronous storage bridge. The Chrome extension (which runs in
+ * contexts without `localStorage`, e.g. the MV3 service worker) installs a
+ * small object here backed by `chrome.storage`. When no bridge is installed
+ * the functions fall back to `localStorage`, so the web app is unaffected.
+ */
+export interface StorageBridge {
+  get(key: string): string | null;
+  set(key: string, value: string): void;
+  remove?(key: string): void;
+}
+
+export function setStorageBridge(bridge: StorageBridge | null): void {
+  (globalThis as Record<string, unknown>).__sentinelStorage = bridge ?? undefined;
+}
+
+function orgBridge(): StorageBridge | null {
+  const bridge = (globalThis as Record<string, unknown>).__sentinelStorage as StorageBridge | undefined;
+  return bridge ?? null;
+}
+
 export function getOrgDomain(): string {
+  const bridge = orgBridge();
+  if (bridge) {
+    try {
+      return (bridge.get(ORG_DOMAIN_KEY) ?? "").trim().toLowerCase();
+    } catch {
+      return "";
+    }
+  }
   try {
     return (localStorage.getItem(ORG_DOMAIN_KEY) ?? "").trim().toLowerCase();
   } catch {
@@ -86,6 +115,15 @@ export function getOrgDomain(): string {
 }
 
 export function setOrgDomain(domain: string): void {
+  const bridge = orgBridge();
+  if (bridge) {
+    try {
+      bridge.set(ORG_DOMAIN_KEY, domain.trim().toLowerCase());
+    } catch {
+      /* storage unavailable */
+    }
+    return;
+  }
   try {
     localStorage.setItem(ORG_DOMAIN_KEY, domain.trim().toLowerCase());
   } catch {
@@ -94,6 +132,14 @@ export function setOrgDomain(domain: string): void {
 }
 
 export function getOrgName(): string {
+  const bridge = orgBridge();
+  if (bridge) {
+    try {
+      return (bridge.get(ORG_NAME_KEY) ?? "").trim();
+    } catch {
+      return "";
+    }
+  }
   try {
     return (localStorage.getItem(ORG_NAME_KEY) ?? "").trim();
   } catch {
@@ -102,6 +148,15 @@ export function getOrgName(): string {
 }
 
 export function setOrgName(name: string): void {
+  const bridge = orgBridge();
+  if (bridge) {
+    try {
+      bridge.set(ORG_NAME_KEY, name.trim());
+    } catch {
+      /* storage unavailable */
+    }
+    return;
+  }
   try {
     localStorage.setItem(ORG_NAME_KEY, name.trim());
   } catch {

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sentinel AI</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="head">
+        <div class="brand-mark">🛡️</div>
+        <div class="brand-text">
+          <div class="brand-name">SENTINEL AI</div>
+          <div class="brand-sub">Email Threat Sentinel</div>
+        </div>
+        <label class="switch" title="Enable / disable scanning">
+          <input type="checkbox" id="enabled" />
+          <span class="slider"></span>
+        </label>
+      </header>
+
+      <section id="lastScan" class="last-scan hidden">
+        <div class="ls-row">
+          <div id="lsScore" class="ls-score">—</div>
+          <div class="ls-info">
+            <div id="lsClass" class="ls-class">No scan yet</div>
+            <div id="lsSender" class="ls-sender">Open an email in your webmail to scan it.</div>
+          </div>
+        </div>
+        <div id="lsVerdict" class="ls-verdict"></div>
+        <div class="ls-actions">
+          <button id="openPanel" class="btn btn-primary">Open full analysis</button>
+        </div>
+      </section>
+
+      <section class="controls">
+        <button id="addSample" class="btn btn-primary">Scan a sample phishing email</button>
+        <div class="field" style="margin-top: 10px;">
+          <label for="sensitivity">Sensitivity</label>
+          <select id="sensitivity">
+            <option value="conservative">Conservative (flag more)</option>
+            <option value="balanced" selected>Balanced (recommended)</option>
+            <option value="aggressive">Aggressive (flag less, high confidence only)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="check">
+            <input type="checkbox" id="listChips" checked />
+            <span>Show risk markers in the inbox list</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="history">
+        <div class="history-head">
+          <span>Recent scans (<span id="historyCount">0</span>)</span>
+          <button id="clearHistory" class="link-btn">Clear</button>
+        </div>
+        <ul id="historyList" class="history-list"></ul>
+      </section>
+
+      <footer class="foot">
+        <span>🔒 Detection runs locally · only sender IP/domains leave for DNS &amp; WHOIS checks</span>
+        <span id="version"></span>
+      </footer>
+    </div>
+    <script src="../engine/detection-bundle.js"></script>
+    <script src="shared-storage.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

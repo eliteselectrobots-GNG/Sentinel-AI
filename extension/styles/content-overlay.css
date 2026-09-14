@@ -1,0 +1,47 @@
+.sentinel-ai-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-right: 6px;
+  line-height: 16px;
+  vertical-align: middle;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.sentinel-ai-chip-critical {
+  background: #dc2626;
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+}
+
+.sentinel-ai-chip-high {
+  background: #f97316;
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+}
+
+.sentinel-ai-chip-medium {
+  background: #eab308;
+  color: #1f2937;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sentinel-ai-chip-low {
+  background: #16a34a;
+  color: #fff;
+}
+
+/* Keep the chip from stealing the row click for Gmail's table rows */
+table tr.sentinel-ai-row-processed,
+tr.sentinel-ai-row-processed {
+  position: relative;
+}

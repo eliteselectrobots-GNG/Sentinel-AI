@@ -1,5 +1,6 @@
 import { AlertTriangle, Ban, CheckCircle2, Inbox, Server, ShieldAlert, ShieldCheck, XCircle, type LucideIcon } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
+import { useCountUp } from "@/hooks/use-motion";
 import { flagEmoji, locationLabel, type GeoInfo } from "@/lib/geo";
 import { classifyEmail, classMeta, getOrgDomain } from "@/lib/advanced";
 import type { StoredScan } from "@/lib/store";
@@ -95,6 +96,8 @@ export function IntegrityBadge({ verified }: { verified: boolean }) {
 export function Stat({ label, value, suffix, sub, tone = "brand", icon: Icon }: { label: string; value: string; suffix?: string; sub?: string; tone?: "critical" | "brand" | "warning" | "safe"; icon: LucideIcon }) {
   const color = tone === "critical" ? "text-status-critical" : tone === "warning" ? "text-status-warning" : tone === "safe" ? "text-status-safe" : "text-brand";
   const subColor = tone === "critical" ? "text-status-critical" : tone === "warning" ? "text-status-warning" : tone === "safe" ? "text-status-safe" : "text-muted-foreground";
+  const numeric = /^\d+$/.test(value) ? Number(value) : null;
+  const animated = useCountUp(numeric ?? 0);
   return (
     <div className="bg-surface p-5">
       <div className="mb-6 flex items-center justify-between">
@@ -102,7 +105,7 @@ export function Stat({ label, value, suffix, sub, tone = "brand", icon: Icon }: 
         <Icon className={`size-4 ${color}`} />
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="font-display text-3xl font-semibold tracking-tight text-foreground">{value}</span>
+        <span className="font-display text-3xl font-semibold tracking-tight text-foreground">{numeric !== null ? animated : value}</span>
         {suffix && <span className="font-mono text-xs text-muted-foreground">{suffix}</span>}
       </div>
       {sub && <p className={`mt-3 font-mono text-[10px] ${subColor}`}>{sub}</p>}
@@ -128,7 +131,7 @@ export function Bar({ label, value, pct, tone }: { label: string; value: string;
         <span className="font-mono text-foreground">{value}</span>
       </div>
       <div className="h-1.5 bg-muted">
-        <div className={`h-full ${tone}`} style={{ width: `${Math.max(2, Math.min(100, pct))}%` }} />
+        <div className={`bar-fill h-full ${tone}`} style={{ width: `${Math.max(2, Math.min(100, pct))}%` }} />
       </div>
     </div>
   );

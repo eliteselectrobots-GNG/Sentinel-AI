@@ -48,6 +48,10 @@ function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const fail = (err: Error) => {
+      dbPromise = undefined;
+      reject(err);
+    };
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(SCAN_STORE)) {
@@ -60,7 +64,13 @@ function openDb(): Promise<IDBDatabase> {
       }
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("Could not open local evidence store"));
+    const failErr = () => fail(request.error ?? new Error("Could not open local evidence store"));
+    request.onerror = failErr;
+    request.onblocked = () => fail(new Error("Local evidence store upgrade blocked by another connection"));
+    // Never let a quiet upgrade leave every later operation suspended forever.
+    setTimeout(() => {
+      if (request.readyState === "pending") fail(new Error("Local evidence store open timed out"));
+    }, 10000);
   });
   return dbPromise;
 }

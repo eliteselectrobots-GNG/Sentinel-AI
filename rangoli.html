@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lex Nova — Rangoli</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@400;700&family=Cinzel:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; min-width: 100vw; background: #1a0a2e; overflow: hidden; }
+    .container { width: 100vmin; height: 100vmin; max-width: 900px; max-height: 900px; }
+    svg { width: 100%; height: 100%; filter: drop-shadow(0 0 40px rgba(255, 180, 50, 0.15)); }
+    @keyframes rotate-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes rotate-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+    @keyframes pulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+    @keyframes sparkle { 0%, 100% { opacity: 0.3; r: 2; } 50% { opacity: 1; r: 4; } }
+    .ring-outer { transform-origin: 450px 450px; animation: rotate-slow 180s linear infinite; }
+    .ring-inner { transform-origin: 450px 450px; animation: rotate-reverse 120s linear infinite; }
+    .petal { animation: pulse 4s ease-in-out infinite; }
+    .dot { animation: sparkle 3s ease-in-out infinite; }
+    .text-main { font-family: 'Cinzel', serif; font-weight: 900; letter-spacing: 0.12em; }
+    .text-sub { font-family: 'Cormorant Garamond', serif; font-weight: 400; font-style: italic; letter-spacing: 0.25em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <svg viewBox="0 0 900 900" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ff6b35" stop-opacity="0.3"/>
+          <stop offset="50%" stop-color="#e63946" stop-opacity="0.15"/>
+          <stop offset="100%" stop-color="transparent"/>
+        </radialGradient>
+        <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f4a261"/>
+          <stop offset="50%" stop-color="#f7c948"/>
+          <stop offset="100%" stop-color="#e09f3e"/>
+        </linearGradient>
+        <linearGradient id="ruby" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#e63946"/>
+          <stop offset="100%" stop-color="#9d0208"/>
+        </linearGradient>
+        <linearGradient id="turq" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#2ec4b6"/>
+          <stop offset="100%" stop-color="#0f766e"/>
+        </linearGradient>
+        <linearGradient id="saffron" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#ff9933"/>
+          <stop offset="100%" stop-color="#e65100"/>
+        </linearGradient>
+        <linearGradient id="magenta" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#d946ef"/>
+          <stop offset="100%" stop-color="#86198f"/>
+        </linearGradient>
+        <linearGradient id="emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#34d399"/>
+          <stop offset="100%" stop-color="#065f46"/>
+        </linearGradient>
+        <!-- Petal -->
+        <path id="petal" d="M0,-18 C6,-16 12,-10 14,0 C12,10 6,16 0,18 C-6,16 -12,10 -14,0 C-12,-10 -6,-16 0,-18Z"/>
+        <!-- Paisley -->
+        <path id="paisley" d="M0,-14 C4,-12 8,-6 8,2 C8,8 4,14 0,16 C-4,14 -8,8 -8,2 C-8,-6 -4,-12 0,-14Z M0,-14 C-3,-12 -5,-6 -5,2 C-5,6 -3,10 0,12"/>
+        <!-- Lotus petal -->
+        <path id="lotus" d="M0,-24 C8,-20 14,-10 14,0 C14,10 8,20 0,24 C-8,20 -14,10 -14,0 C-14,-10 -8,-20 0,-24Z"/>
+        <!-- Diamond -->
+        <polygon id="diamond" points="0,-10 6,0 0,10 -6,0"/>
+        <!-- Teardrop -->
+        <path id="teardrop" d="M0,-12 C4,-8 6,-2 6,4 C6,8 4,12 0,14 C-4,12 -6,8 -6,4 C-6,-2 -4,-8 0,-12Z"/>
+        <!-- Star 8-pointed -->
+        <polygon id="star8" points="0,-120 15,-45 90,-45 30,5 50,80 0,40 -50,80 -30,5 -90,-45 -15,-45"/>
+        <!-- Cross petal -->
+        <path id="cross-petal" d="M0,-16 C4,-14 6,-8 6,0 C6,8 4,14 0,16 C-4,14 -6,8 -6,0 C-6,-8 -4,-14 0,-16Z"/>
+        <!-- Kumkum dot -->
+        <circle id="kumkum" r="3"/>
+      </defs>
+
+      <!-- Background -->
+      <rect width="900" height="900" fill="#1a0a2e"/>
+      <circle cx="450" cy="450" r="430" fill="url(#glow)"/>
+
+      <!-- ===== RING 1: 32 outer diamonds (slow rotate) ===== -->
+      <g class="ring-outer">
+        <circle cx="450" cy="450" r="410" fill="none" stroke="#f4a261" stroke-width="0.8" opacity="0.4"/>
+        <circle cx="450" cy="450" r="405" fill="none" stroke="#f4a261" stroke-width="0.3" opacity="0.25" stroke-dasharray="4 8"/>
+        <g>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(11.25 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(22.5 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(33.75 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(45 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(56.25 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(67.5 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(78.75 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(90 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(101.25 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(112.5 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(123.75 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(135 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(146.25 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(157.5 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(168.75 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(180 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(191.25 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(202.5 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(213.75 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(225 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(236.25 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(247.5 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(258.75 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(270 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(281.25 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(292.5 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(303.75 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(315 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(326.25 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(337.5 450 450) translate(0,-410)"/>
+          <use href="#diamond" fill="url(#gold)" opacity="0.7" transform="rotate(348.75 450 450) translate(0,-410)"/>
+        </g>
+      </g>
+
+      <!-- ===== RING 2: 24 teardrops (reverse rotate) ===== -->
+      <g class="ring-inner">
+        <circle cx="450" cy="450" r="350" fill="none" stroke="#e63946" stroke-width="1" opacity="0.35"/>
+        <circle cx="450" cy="450" r="345" fill="none" stroke="#e63946" stroke-width="0.4" opacity="0.2" stroke-dasharray="3 6"/>
+        <g>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(15 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(30 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(45 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(60 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(75 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(90 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(105 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(120 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(135 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(150 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(165 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(180 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(195 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(210 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(225 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(240 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(255 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(270 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(285 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(300 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(315 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(330 450 450) translate(0,-350)"/>
+          <use href="#teardrop" fill="url(#ruby)" opacity="0.7" transform="rotate(345 450 450) translate(0,-350)"/>
+        </g>
+      </g>
+
+      <!-- ===== RING 3: 16 paisleys (static) ===== -->
+      <circle cx="450" cy="450" r="290" fill="none" stroke="#2ec4b6" stroke-width="1.2" opacity="0.5"/>
+      <circle cx="450" cy="450" r="285" fill="none" stroke="#2ec4b6" stroke-width="0.4" opacity="0.3" stroke-dasharray="6 4"/>
+      <g>
+        <use href="#paisley" fill="url(#turq)" opacity="0.8" class="petal"/>
+        <use href="#paisley" fill="url(#turq)" opacity="0.8" class="petal" transform="rotate(22.5 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#gold)" opacity="0.7" class="petal" transform="rotate(45 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#turq)" opacity="0.8" class="petal" transform="rotate(67.5 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#turq)" opacity="0.8" class="petal" transform="rotate(90 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#gold)" opacity="0.7" class="petal" transform="rotate(112.5 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#turq)" opacity="0.8" class="petal" transform="rotate(135 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#turq)" opacity="0.8" class="petal" transform="rotate(157.5 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#gold)" opacity="0.7" class="petal" transform="rotate(180 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#turq)" opacity="0.8" class="petal" transform="rotate(202.5 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#turq)" opacity="0.8" class="petal" transform="rotate(225 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#gold)" opacity="0.7" class="petal" transform="rotate(247.5 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#turq)" opacity="0.8" class="petal" transform="rotate(270 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#turq)" opacity="0.8" class="petal" transform="rotate(292.5 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#gold)" opacity="0.7" class="petal" transform="rotate(315 450 450) translate(0,-290)"/>
+        <use href="#paisley" fill="url(#turq)" opacity="0.8" class="petal" transform="rotate(337.5 450 450) translate(0,-290)"/>
+      </g>
+
+      <!-- ===== RING 4: 8 lotus petals (large, prominent) ===== -->
+      <circle cx="450" cy="450" r="220" fill="none" stroke="#d946ef" stroke-width="1" opacity="0.4"/>
+      <g>
+        <use href="#lotus" fill="url(#magenta)" opacity="0.6"/>
+        <use href="#lotus" fill="url(#magenta)" opacity="0.6" transform="rotate(45 450 450) translate(0,-220)"/>
+        <use href="#lotus" fill="url(#saffron)" opacity="0.5" transform="rotate(90 450 450) translate(0,-220)"/>
+        <use href="#lotus" fill="url(#magenta)" opacity="0.6" transform="rotate(135 450 450) translate(0,-220)"/>
+        <use href="#lotus" fill="url(#magenta)" opacity="0.6" transform="rotate(180 450 450) translate(0,-220)"/>
+        <use href="#lotus" fill="url(#saffron)" opacity="0.5" transform="rotate(225 450 450) translate(0,-220)"/>
+        <use href="#lotus" fill="url(#magenta)" opacity="0.6" transform="rotate(270 450 450) translate(0,-220)"/>
+        <use href="#lotus" fill="url(#magenta)" opacity="0.6" transform="rotate(315 450 450) translate(0,-220)"/>
+      </g>
+
+      <!-- ===== RING 5: Kumkum dots + cross petals ===== -->
+      <circle cx="450" cy="450" r="160" fill="none" stroke="url(#gold)" stroke-width="1.5" opacity="0.6"/>
+      <g>
+        <use href="#kumkum" fill="#e63946"/>
+        <use href="#kumkum" fill="#f7c948" transform="rotate(22.5 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#e63946" transform="rotate(45 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#f7c948" transform="rotate(67.5 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#e63946" transform="rotate(90 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#f7c948" transform="rotate(112.5 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#e63946" transform="rotate(135 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#f7c948" transform="rotate(157.5 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#e63946" transform="rotate(180 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#f7c948" transform="rotate(202.5 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#e63946" transform="rotate(225 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#f7c948" transform="rotate(247.5 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#e63946" transform="rotate(270 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#f7c948" transform="rotate(292.5 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#e63946" transform="rotate(315 450 450) translate(0,-160)"/>
+        <use href="#kumkum" fill="#f7c948" transform="rotate(337.5 450 450) translate(0,-160)"/>
+      </g>
+
+      <!-- ===== CENTRE: 8-pointed star ===== -->
+      <g transform="translate(450,450)">
+        <use href="#star8" fill="url(#saffron)" opacity="0.5" stroke="#f4a261" stroke-width="0.5"/>
+      </g>
+
+      <!-- Inner glow -->
+      <circle cx="450" cy="450" r="130" fill="url(#glow)" opacity="0.6"/>
+      <circle cx="450" cy="450" r="100" fill="#1a0a2e" opacity="0.7"/>
+
+      <!-- ===== TEXT ===== -->
+      <text x="450" y="430" text-anchor="middle" fill="url(#gold)" class="text-main" font-size="52">
+        LEX NOVA
+      </text>
+      <text x="450" y="490" text-anchor="middle" fill="#f4a261" class="text-sub" font-size="24" opacity="0.85">
+        THE WAY AHEAD
+      </text>
+
+      <!-- ===== DECORATIVE: sparkle dots ===== -->
+      <g>
+        <circle cx="450" cy="340" r="1.8" fill="#f7c948" opacity="0.6" class="dot"/>
+        <circle cx="450" cy="560" r="1.8" fill="#f7c948" opacity="0.6" class="dot"/>
+        <circle cx="340" cy="450" r="1.8" fill="#f7c948" opacity="0.6" class="dot"/>
+        <circle cx="560" cy="450" r="1.8" fill="#f7c948" opacity="0.6" class="dot"/>
+        <circle cx="380" cy="380" r="1.2" fill="#e63946" opacity="0.4"/>
+        <circle cx="520" cy="380" r="1.2" fill="#e63946" opacity="0.4"/>
+        <circle cx="380" cy="520" r="1.2" fill="#e63946" opacity="0.4"/>
+        <circle cx="520" cy="520" r="1.2" fill="#e63946" opacity="0.4"/>
+      </g>
+
+      <!-- ===== OUTER PATHS ===== -->
+      <g opacity="0.3">
+        <circle cx="450" cy="450" r="380" fill="none" stroke="#f4a261" stroke-width="0.3" stroke-dasharray="2 12"/>
+        <circle cx="450" cy="450" r="320" fill="none" stroke="#2ec4b6" stroke-width="0.3" stroke-dasharray="8 6"/>
+        <circle cx="450" cy="450" r="250" fill="none" stroke="#f4a261" stroke-width="0.3" stroke-dasharray="4 10"/>
+        <circle cx="450" cy="450" r="180" fill="none" stroke="#d946ef" stroke-width="0.3" stroke-dasharray="6 8"/>
+      </g>
+    </svg>
+  </div>
+</body>
+</html>
