@@ -13,7 +13,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get("settings", (res) => {
     if (!res.settings) {
       chrome.storage.local.set({
-        settings: { enabled: true, sensitivity: "balanced", listChips: true },
+        settings: { enabled: true, sensitivity: "balanced", listChips: true, maskEmails: false, retentionDays: 0 },
       });
     }
   });
@@ -52,12 +52,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case "sentinel:get-history": {
-      D.listScans().then((scans) => sendResponse({ scans })).catch(() => sendResponse({ scans: [] }));
+      applyRetentionSweep()
+        .then(() => D.listScans())
+        .then((scans) => sendResponse({ scans }))
+        .catch(() => sendResponse({ scans: [] }));
       return true;
     }
 
     case "sentinel:get-last": {
-      D.listScans().then((scans) => sendResponse({ last: scans[0] || null, count: scans.length })).catch(() => sendResponse({ last: null, count: 0 }));
+      applyRetentionSweep()
+        .then(() => D.listScans())
+        .then((scans) => sendResponse({ last: scans[0] || null, count: scans.length }))
+        .catch(() => sendResponse({ last: null, count: 0 }));
       return true;
     }
 
@@ -74,7 +80,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case "sentinel:set-settings": {
-      const next = { enabled: true, sensitivity: "balanced", listChips: true, ...(message.settings || {}) };
+      const next = { enabled: true, sensitivity: "balanced", listChips: true, maskEmails: false, retentionDays: 0, ...(message.settings || {}) };
       chrome.storage.local.set({ settings: next });
       broadcast(message, next);
       sendResponse({ ok: true });
@@ -105,6 +111,9 @@ function handleScan(message, sender) {
     briefing: message.briefing,
   };
 
+  if (!Array.isArray(scan.eventLog)) scan.eventLog = [];
+  scan.eventLog.push({ t: Date.now(), e: "scan.stored", d: "scanned and classified locally" });
+
   if (D && typeof D.addScan === "function") {
     D.addScan(scan).catch(() => {});
   }
@@ -131,6 +140,8 @@ async function enrichSilently(scan) {
     const auth = await D.enrichWithDns(senderAddress, replyTo, returnPath, null);
     if (auth && auth.checks.length > 0) {
       scan.auth = auth;
+      if (!Array.isArray(scan.eventLog)) scan.eventLog = [];
+      scan.eventLog.push({ t: Date.now(), e: "enrich.dns", d: `${auth.checks.length} SPF/DKIM/DMARC check(s) via DNS` });
       await D.addScan(scan);
     }
   } catch {
@@ -148,6 +159,8 @@ async function enrichSilently(scan) {
           const ageDays = (Date.now() - created) / 86400000;
           scan.domainAgeDays = Math.round(ageDays);
         }
+        if (!Array.isArray(scan.eventLog)) scan.eventLog = [];
+        scan.eventLog.push({ t: Date.now(), e: "enrich.domain", d: `MX + registrar intelligence for ${domain}` });
         await D.addScan(scan);
       }
     } catch {
@@ -167,6 +180,8 @@ async function enrichSilently(scan) {
         } catch {
           /* infra unavailable */
         }
+        if (!Array.isArray(scan.eventLog)) scan.eventLog = [];
+        scan.eventLog.push({ t: Date.now(), e: "enrich.ip", d: `geolocation + infrastructure for ${ip}` });
         await D.addScan(scan);
       }
     } catch {
@@ -205,6 +220,8 @@ function addDemoSample() {
       priority,
       briefing,
     };
+    if (!Array.isArray(scan.eventLog)) scan.eventLog = [];
+    scan.eventLog.push({ t: Date.now(), e: "scan.stored", d: "demo sample generated and classified locally" });
     await D.addScan(scan);
     return scan;
   });
@@ -235,4 +252,30 @@ function withTimeout(promise, ms) {
     Promise.resolve(promise),
     new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
   ]);
+}
+
+/**
+ * Deletes stored scans older than the configured retention window while
+ * exempting demo records (the onboarding sample must survive). Fires on the
+ * history/last reads so the sweep happens without a dedicated scheduled job.
+ */
+function applyRetentionSweep() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get("settings", (res) => {
+      const retentionDays = (res.settings && res.settings.retentionDays) || 0;
+      if (!retentionDays || typeof D.listScans !== "function" || typeof D.deleteScan !== "function") {
+        resolve(0);
+        return;
+      }
+      const cutoff = Date.now() - retentionDays * 86400000;
+      D.listScans()
+        .then((scans) => {
+          const expired = (scans || []).filter((scan) => !scan.demo && scan.scannedAt && scan.scannedAt < cutoff);
+          const sweeps = expired.map((scan) => D.deleteScan(scan.id).catch(() => {}));
+          return Promise.all(sweeps).then(() => expired.length);
+        })
+        .then((removed) => resolve(removed))
+        .catch(() => resolve(0));
+    });
+  });
 }

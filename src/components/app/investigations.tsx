@@ -84,7 +84,9 @@ export function InvestigationsPage({
     const q = query.trim().toLowerCase();
     if (!q) return scans;
     return scans.filter((scan) => {
-      const haystack = `${scan.caseId} ${scan.result.sender} ${scan.result.senderAddress} ${scan.result.subject}`.toLowerCase();
+      const haystack =
+        `${scan.caseId} ${scan.result.sender} ${scan.result.senderAddress} ${scan.result.replyTo} ${scan.result.returnPath} ` +
+        `${scan.result.subject} ${scan.result.hops.map((h) => h.ip).join(" ")} ${Object.keys(scan.domainIntel ?? {}).join(" ")}`.toLowerCase();
       return haystack.includes(q);
     });
   }, [scans, query]);

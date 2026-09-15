@@ -5557,6 +5557,11 @@ Please process the attached invoice immediately and confirm the new beneficiary 
         source: "live"
       };
       if (data.connection?.domain) info.ispDomain = data.connection.domain;
+      if (data.security) {
+        if (data.security.proxy) info.proxy = true;
+        if (data.security.vpn) info.vpn = true;
+        if (data.security.tor) info.tor = true;
+      }
       cache.set(ip, info);
       return info;
     } catch {
@@ -5747,7 +5752,9 @@ Please process the attached invoice immediately and confirm the new beneficiary 
       const fingerprints = fingerprintInfra(geo);
       const infra = {
         blacklists,
-        torExit: torExit || fingerprints.torRelayOperator,
+        torExit: torExit || fingerprints.torRelayOperator || !!geo.tor,
+        vpn: !!geo.vpn,
+        proxy: !!geo.proxy,
         cloudHosting: fingerprints.cloudHosting,
         source: "live"
       };
@@ -5838,6 +5845,10 @@ Please process the attached invoice immediately and confirm the new beneficiary 
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
+      const fail = (err) => {
+        dbPromise = void 0;
+        reject(err);
+      };
       request.onupgradeneeded = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains(SCAN_STORE)) {
@@ -5850,7 +5861,12 @@ Please process the attached invoice immediately and confirm the new beneficiary 
         }
       };
       request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error ?? new Error("Could not open local evidence store"));
+      const failErr = () => fail(request.error ?? new Error("Could not open local evidence store"));
+      request.onerror = failErr;
+      request.onblocked = () => fail(new Error("Local evidence store upgrade blocked by another connection"));
+      setTimeout(() => {
+        if (request.readyState === "pending") fail(new Error("Local evidence store open timed out"));
+      }, 1e4);
     });
     return dbPromise;
   }

@@ -27,6 +27,10 @@ export type IpInfra = {
   torExit: boolean;
   /** ISP/org fingerprint looks like a cloud / datacenter host, not residential. */
   cloudHosting: boolean;
+  /** ipwho.is reports this IP as a public proxy exit. */
+  proxy?: boolean;
+  /** ipwho.is reports this IP as a VPN exit node. */
+  vpn?: boolean;
   source: "live" | "demo";
 };
 
@@ -185,7 +189,9 @@ export async function enrichIpInfra(ip: string, geo: GeoInfo): Promise<IpInfra |
     const fingerprints = fingerprintInfra(geo);
     const infra: IpInfra = {
       blacklists,
-      torExit: torExit || fingerprints.torRelayOperator,
+      torExit: torExit || fingerprints.torRelayOperator || !!geo.tor,
+      vpn: !!geo.vpn,
+      proxy: !!geo.proxy,
       cloudHosting: fingerprints.cloudHosting,
       source: "live",
     };

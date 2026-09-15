@@ -396,6 +396,28 @@
     const evidence = s.classification.evidence || [];
     const groups = { critical: [], high: [], medium: [], info: [] };
     for (const item of evidence) groups[item.severity]?.push(item) || groups.info.push(item);
+    let attaches = [];
+    try {
+      if (D && typeof D.detectAttachments === "function") attaches = D.detectAttachments(s.raw || "") || [];
+    } catch {}
+    if (attaches.length > 0) {
+      const box = el("div", { class: "sai-section" });
+      el("div", { class: "sai-section-title", text: `Attachments (${attaches.length})` }, box);
+      for (const att of attaches) {
+        const row = el("div", { class: "sai-flag sai-flag-info" }, box);
+        el("div", { class: "sai-flag-label", text: att.filename }, row);
+        el("div", { class: "sai-flag-detail", text: att.kind || "file" }, row);
+      }
+      try {
+        const threats = (D && typeof D.attachmentThreatFlags === "function" ? D.attachmentThreatFlags(attaches) : []) || [];
+        for (const t of threats) {
+          const row = el("div", { class: `sai-flag sai-flag-${t.severity}` }, box);
+          el("div", { class: "sai-flag-label", text: t.label }, row);
+          el("div", { class: "sai-flag-detail", text: t.detail }, row);
+        }
+      } catch {}
+      pane.appendChild(box);
+    }
     for (const sev of ["critical", "high", "medium"]) {
       if (groups[sev].length === 0) continue;
       const box = el("div", { class: "sai-section" });
@@ -420,9 +442,30 @@
   }
 
   function buildPaneLinks(s, pane) {
-    if (!s.domainAnalysis) return;
-    const dms = Array.from((s.domainAnalysis.domains || new Map()).values());
+    const sendDomain = String(s.result.senderAddress || "").split("@")[1];
+    const dms = Array.from((s.domainAnalysis && s.domainAnalysis.domains || new Map()).values());
     const urls = (s.iocs || []).filter((ioc) => ioc.type === "URL");
+
+    if (sendDomain) {
+      const intel = (s.domainIntel || {})[sendDomain.toLowerCase()];
+      if (intel) {
+        const box = el("div", { class: "sai-section" });
+        el("div", { class: "sai-section-title", text: "Sender domain intelligence" }, box);
+        const row = el("div", { class: "sai-domain" }, box);
+        el("div", { class: "sai-domain-name", text: sendDomain }, row);
+        if (intel.mx && intel.mx.length > 0) {
+          el("div", { class: "sai-flag sai-flag-info", text: `MX: ${intel.mx.join(", ").slice(0, 120)}` }, row);
+        }
+        if (intel.whois && intel.whois.registrar) {
+          el("div", { class: "sai-flag sai-flag-info", text: `Registrar: ${intel.whois.registrar}${intel.whois.created ? " · created " + String(intel.whois.created).slice(0, 10) : ""}` }, row);
+        }
+        if (s.domainAgeDays != null) {
+          el("div", { class: "sai-flag sai-flag-info", text: `Domain age ≈ ${s.domainAgeDays} days` }, row);
+        }
+        pane.appendChild(box);
+      }
+    }
+
     if (dms.length === 0 && urls.length === 0) {
       el("div", { class: "sai-empty", text: "No links or domains found in this message." }, pane);
       return;
@@ -491,17 +534,77 @@
 
   function buildPaneHash(s, pane) {
     const raw = s.raw || "";
-    const box = el("div", { class: "sai-section" });
-    el("div", { class: "sai-section-title", text: "Evidence fingerprint" }, box);
-    el("div", { class: "sai-hash", text: s.result.evidenceHash || "—" }, box);
+    const grid = el("div", { class: "sai-grid" }, pane);
+
+    const left = el("div", { class: "sai-section" }, grid);
+    el("div", { class: "sai-section-title", text: "Evidence fingerprint" }, left);
+    el("div", { class: "sai-hash", text: s.result.evidenceHash || "—" }, left);
     el(
       "div",
       { class: "sai-caption", text: "SHA-256 of the exact analyzed content. This proves the verdict matches the evidence and lets you re-verify later." },
-      box
+      left
     );
+    const reportBtn = el("button", { class: "sai-btn sai-btn-ghost", text: "⬇ Download forensic report" }, left);
+    reportBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        if (globalThis.SentAIReport) {
+          globalThis.SentAIReport.note(s, "report.exported", "downloaded forensic report (html)");
+          globalThis.SentAIReport.download("html", s);
+        }
+      } catch {}
+    });
+
+    const right = el("div", { class: "sai-section" }, grid);
+    el("div", { class: "sai-section-title", text: "Origin geolocation" }, right);
+    let ip = null;
+    try {
+      ip = typeof D?.originIpOf === "function" ? D.originIpOf(s) : (s.result.hops || []).find((h) => h && h.ip && h.ip !== "Not disclosed")?.ip || null;
+    } catch {
+      ip = null;
+    }
+    const geo = ip && s.geo && s.geo[ip];
+    const infra = ip && s.infra && s.infra[ip];
+    if (ip) {
+      const ipRow = el("div", { class: "sai-fact" }, right);
+      el("div", { class: "sai-fact-k", text: "Origin IP" }, ipRow);
+      el("div", { class: "sai-fact-v", text: ip }, ipRow);
+      if (geo) {
+        const loc = [geo.country, geo.region, geo.city].filter(Boolean).join(", ") || "unknown";
+        const locRow = el("div", { class: "sai-fact" }, right);
+        el("div", { class: "sai-fact-k", text: "Location" }, locRow);
+        el("div", { class: "sai-fact-v", text: loc }, locRow);
+        if (geo.org || geo.isp) {
+          const orgRow = el("div", { class: "sai-fact" }, right);
+          el("div", { class: "sai-fact-k", text: "ISP / org" }, orgRow);
+          el("div", { class: "sai-fact-v", text: geo.org || geo.isp }, orgRow);
+        }
+      }
+      if (infra) {
+        const bits = [];
+        if (infra.torExit) bits.push("Tor exit relay");
+        if (infra.vpn) bits.push("VPN exit");
+        if (infra.proxy) bits.push("public proxy");
+        if (infra.cloudHosting) bits.push("cloud / datacenter host");
+        for (const hit of infra.blacklists || []) if (hit.meaning) bits.push(hit.meaning);
+        if (bits.length) {
+          const infRow = el("div", { class: "sai-fact" }, right);
+          el("div", { class: "sai-fact-k", text: "Infrastructure" }, infRow);
+          el("div", { class: "sai-fact-v", text: bits.slice(0, 4).join(" · ") }, infRow);
+        }
+      }
+    } else {
+      el(
+        "div",
+        { class: "sai-caption", text: "No origin IP available — webmail doesn't expose Received headers locally, so exact sender location can't be derived. Shown for raw/.eml evidence with a real IP." },
+        right
+      );
+    }
+
+    const box = el("div", { class: "sai-section" }, pane);
     const preview = el("pre", { class: "sai-raw" }, box);
     preview.textContent = raw.slice(0, 3000);
-    pane.appendChild(box);
   }
 
   /* ------------------------------------------------------------------ */

@@ -12,6 +12,7 @@
   let scans = [];
   let current = null;
   let selectedId = null;
+  let lastViewedId = null;
 
   const CLASS_META = {
     phishing: { label: "Phishing", color: "#dc2626" },
@@ -45,6 +46,15 @@
     }
 
     $("clearBtn").addEventListener("click", clearHistory);
+    $("reportBtn").addEventListener("click", () => {
+      if (!current) return;
+      try {
+        if (globalThis.SentAIReport) {
+          globalThis.SentAIReport.note(current, "report.exported", "downloaded forensic report (html)");
+          globalThis.SentAIReport.download("html", current);
+        }
+      } catch {}
+    });
 
     chrome.storage.local.get("lastSelectedScan", (res) => {
       selectedId = res.lastSelectedScan || null;
@@ -82,6 +92,10 @@
     current = scans.find((s) => s.id === prev) || scans[0];
     selectedId = current.id;
     sel.value = selectedId;
+    if (globalThis.SentAIReport && typeof globalThis.SentAIReport.note === "function" && current.id !== lastViewedId) {
+      lastViewedId = current.id;
+      try { globalThis.SentAIReport.note(current, "case.viewed", "opened in analysis panel"); } catch {}
+    }
     renderCurrent();
   }
 
@@ -264,6 +278,25 @@
       (groups[item.severity] || groups.info).push(item);
     }
 
+    let attaches = [];
+    try {
+      if (D && typeof D.detectAttachments === "function") attaches = D.detectAttachments(s.raw || "") || [];
+    } catch {}
+    if (attaches.length > 0) {
+      section("section-title", `Attachments (${attaches.length})`, pane);
+      for (const att of attaches) {
+        const f = section("flag flag-info", "", pane);
+        f.insertAdjacentHTML("beforeend", `<div class="flag-label">${esc(att.filename)}</div><div class="flag-detail">${esc(att.kind || "file")}</div>`);
+      }
+      try {
+        const threats = (D && typeof D.attachmentThreatFlags === "function" ? D.attachmentThreatFlags(attaches) : []) || [];
+        for (const t of threats) {
+          const f = section(`flag flag-${t.severity}`, "", pane);
+          f.insertAdjacentHTML("beforeend", `<div class="flag-label">${esc(t.label)}</div><div class="flag-detail">${esc(t.detail || "")}</div>`);
+        }
+      } catch {}
+    }
+
     let extraFlags = [];
     try {
       extraFlags = extraFlags.concat(D.spoofingSignals(s, scans, "") || []);
@@ -433,6 +466,8 @@
       if (infra) {
         const bits = [];
         if (infra.torExit) bits.push("Tor exit relay");
+        if (infra.vpn) bits.push("VPN exit");
+        if (infra.proxy) bits.push("public proxy");
         if (infra.cloudHosting) bits.push("cloud / datacenter host");
         for (const hit of infra.blacklists || []) {
           bits.push(`listed: ${esc(hit.meaning || hit.list)}`);

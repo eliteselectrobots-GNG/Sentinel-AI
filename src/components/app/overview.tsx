@@ -1,5 +1,5 @@
-import { AlertTriangle, ArrowUpRight, CheckCircle2, ChevronRight, Database, Fingerprint, FlaskConical, ListTree, MailWarning, Network, Route, Server, Share2, ShieldCheck, Zap } from "lucide-react";
-import { useMemo, type CSSProperties } from "react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, ChevronRight, Database, Fingerprint, FlaskConical, ListTree, MailWarning, Network, Route, Search, Server, Share2, ShieldCheck, Zap } from "lucide-react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
 import { useReveal } from "@/hooks/use-motion";
@@ -126,10 +126,21 @@ function QuickAccess({ scans, navigate, openScanner, loadDemo }: { scans: Stored
 
 export function OverviewPage({ scans, openScanner, openCase, navigate, notify, loadDemo }: { scans: StoredScan[]; openScanner: () => void; openCase: (id: string) => void; navigate: (page: PageKey) => void; notify: (msg: string) => void; loadDemo: () => void }) {
   const revealRef = useReveal<HTMLDivElement>();
+  const [queueQuery, setQueueQuery] = useState("");
   const distribution = severityDistribution(scans);
   const latest = scans[0];
   const clusters = campaignClusters(scans).filter((c) => c.count >= 2);
   const criticalCount = scans.filter((scan) => scan.result.riskLabel === "Critical").length;
+  const queue = useMemo(() => {
+    const q = queueQuery.trim().toLowerCase();
+    if (!q) return scans;
+    return scans.filter((scan) => {
+      const haystack =
+        `${scan.caseId} ${scan.result.sender} ${scan.result.senderAddress} ${scan.result.replyTo} ${scan.result.returnPath} ` +
+        `${scan.result.subject} ${scan.result.hops.map((h) => h.ip).join(" ")} ${Object.keys(scan.domainIntel ?? {}).join(" ")}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [scans, queueQuery]);
 
   return (
     <div ref={revealRef}>
@@ -186,8 +197,15 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
           {scans.length === 0 ? (
             <EmptyState title="No investigations yet" detail="Analyze an email to start your first case, or load the demo dataset to see the full workflow." action={<Button size="sm" onClick={openScanner}>Analyze email</Button>} />
           ) : (
-            <div className="divide-y divide-border">
-              {scans.slice(0, 8).map((scan, index) => (
+            <>
+              <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                <Search className="size-3.5 shrink-0 text-muted-foreground" />
+                <input aria-label="Search the investigation queue" value={queueQuery} onChange={(event) => setQueueQuery(event.target.value)} placeholder="Search sender, subject, IP, case id…" className="h-7 w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
+                {queueQuery && <span className="shrink-0 font-mono text-[9px] text-muted-foreground">{queue.length}/{scans.length}</span>}
+              </div>
+              <div className="divide-y divide-border">
+                {queue.length === 0 && <p className="px-4 py-6 text-center text-xs text-muted-foreground">No cases match “{queueQuery}”.</p>}
+                {queue.slice(0, 8).map((scan, index) => (
                 <button key={scan.id} style={{ "--row-delay": `${Math.min(index, 6) * 45}ms` } as React.CSSProperties} onClick={() => openCase(scan.id)} className="row-enter flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-elevated sm:gap-4">
                   <div className={`flex size-9 shrink-0 items-center justify-center text-[11px] font-semibold ${scan.result.riskLabel === "Critical" ? "bg-status-critical/15 text-status-critical" : scan.result.riskLabel === "High" ? "bg-status-warning/15 text-status-warning" : scan.result.riskLabel === "Medium" ? "bg-brand/10 text-brand" : "bg-status-safe/10 text-status-safe"}`}>
                     {scan.result.sender.slice(0, 2).toUpperCase()}
@@ -211,6 +229,7 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
                 </button>
               ))}
             </div>
+            </>
           )}
         </Card>
 

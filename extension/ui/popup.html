@@ -32,6 +32,9 @@
         <div class="ls-actions">
           <button id="openPanel" class="btn btn-primary">Open full analysis</button>
         </div>
+        <div class="ls-actions">
+          <button id="downloadReport" class="btn btn-ghost">Download forensic report</button>
+        </div>
       </section>
 
       <section class="controls">
@@ -50,6 +53,21 @@
             <span>Show risk markers in the inbox list</span>
           </label>
         </div>
+        <div class="field">
+          <label class="check">
+            <input type="checkbox" id="maskEmails" />
+            <span>Mask email addresses in exported reports</span>
+          </label>
+        </div>
+        <div class="field" style="margin-top: 6px;">
+          <label for="retentionDays">Evidence retention</label>
+          <select id="retentionDays">
+            <option value="0" selected>Keep indefinitely</option>
+            <option value="7">Delete after 7 days</option>
+            <option value="30">Delete after 30 days</option>
+            <option value="90">Delete after 90 days</option>
+          </select>
+        </div>
       </section>
 
       <section class="history">
@@ -67,6 +85,7 @@
     </div>
     <script src="../engine/detection-bundle.js"></script>
     <script src="shared-storage.js"></script>
+    <script src="report.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

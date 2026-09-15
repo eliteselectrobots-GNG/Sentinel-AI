@@ -50,7 +50,8 @@
         "content/chrome-storage.js",
         "content/providers.js",
         "content/adaptor.js",
-        "content/injector.js"
+        "content/injector.js",
+        "ui/report.js"
       ],
       "css": ["styles/content-overlay.css"],
       "run_at": "document_idle",

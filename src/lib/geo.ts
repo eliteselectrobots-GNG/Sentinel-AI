@@ -24,6 +24,10 @@ export type GeoInfo = {
   asn: string;
   /** The domain registered to the ASN/operator (e.g. relayon.org for Tor exits). */
   ispDomain?: string;
+  /** Anonymizer flags reported by ipwho.is (VPN / public proxy / Tor exit). */
+  proxy?: boolean;
+  vpn?: boolean;
+  tor?: boolean;
   /** "live" = resolved from a real lookup; "demo" = part of the demo dataset. */
   source: "live" | "demo";
 };
@@ -75,6 +79,7 @@ export async function lookupGeo(ip: string): Promise<GeoInfo | null> {
       latitude?: number;
       longitude?: number;
       connection?: { asn?: number; org?: string; isp?: string; domain?: string };
+      security?: { proxy?: boolean; vpn?: boolean; tor?: boolean };
     };
     if (!data || data.success === false) {
       cache.set(ip, null);
@@ -94,6 +99,11 @@ export async function lookupGeo(ip: string): Promise<GeoInfo | null> {
       source: "live",
     };
     if (data.connection?.domain) info.ispDomain = data.connection.domain;
+    if (data.security) {
+      if (data.security.proxy) info.proxy = true;
+      if (data.security.vpn) info.vpn = true;
+      if (data.security.tor) info.tor = true;
+    }
     cache.set(ip, info);
     return info;
   } catch {

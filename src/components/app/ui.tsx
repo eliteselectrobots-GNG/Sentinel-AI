@@ -166,12 +166,22 @@ export function ClassTag({ scan, scans }: { scan: StoredScan; scans: StoredScan[
 /** Live infrastructure chips for one hop IP: Tor exit, blacklist hits, cloud hosting. */
 export function InfraChips({ scan, ip }: { scan: StoredScan; ip: string }) {
   const infra = scan.infra?.[ip];
-  if (!infra || (!infra.torExit && !infra.cloudHosting && infra.blacklists.length === 0)) return null;
+  if (!infra || (!infra.torExit && !infra.vpn && !infra.proxy && !infra.cloudHosting && infra.blacklists.length === 0)) return null;
   return (
     <div className="mt-1.5 flex flex-wrap gap-1.5">
       {infra.torExit && (
         <span title="Listed as a live Tor exit relay by Tor Project DNSEL or relay-operator ASN fingerprint" className="inline-flex items-center gap-1 border border-status-warning/40 bg-status-warning/10 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-wider text-status-warning">
           <ShieldAlert className="size-2.5" />Tor exit relay
+        </span>
+      )}
+      {infra.vpn && (
+        <span title="ipwho.is flags this IP as a VPN exit node — sender is masking their location" className="inline-flex items-center gap-1 border border-status-warning/40 bg-status-warning/10 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-wider text-status-warning">
+          <ShieldAlert className="size-2.5" />VPN exit
+        </span>
+      )}
+      {infra.proxy && (
+        <span title="ipwho.is flags this IP as a public proxy — sender is routing through anonymizing infrastructure" className="inline-flex items-center gap-1 border border-status-warning/40 bg-status-warning/10 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-wider text-status-warning">
+          <ShieldAlert className="size-2.5" />Public proxy
         </span>
       )}
       {infra.blacklists.map((hit) => (

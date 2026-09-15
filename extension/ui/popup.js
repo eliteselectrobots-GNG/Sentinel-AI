@@ -3,6 +3,9 @@
 
   const $ = (id) => document.getElementById(id);
   const byCls = (id, cls) => $(id).classList.toggle(cls, true);
+  const D = globalThis.SentAIDetection;
+
+  let lastScan = null;
 
   const scoreMeta = (score, cls) => {
     const label =
@@ -23,16 +26,21 @@
   $("enabled").addEventListener("change", () => saveSettings());
   $("sensitivity").addEventListener("change", () => saveSettings());
   $("listChips").addEventListener("change", () => saveSettings());
+  $("maskEmails").addEventListener("change", () => saveSettings());
+  $("retentionDays").addEventListener("change", () => saveSettings());
   $("openPanel").addEventListener("click", openPanel);
   $("clearHistory").addEventListener("click", clearHistory);
   $("addSample").addEventListener("click", addSample);
+  $("downloadReport").addEventListener("click", downloadReport);
 
   function loadSettings() {
     chrome.runtime.sendMessage({ type: "sentinel:get-settings" }, (res) => {
-      const s = (res && res.settings) || { enabled: true, sensitivity: "balanced", listChips: true };
+      const s = (res && res.settings) || { enabled: true, sensitivity: "balanced", listChips: true, maskEmails: false, retentionDays: 0 };
       $("enabled").checked = !!s.enabled;
       $("sensitivity").value = s.sensitivity || "balanced";
       $("listChips").checked = s.listChips !== false;
+      $("maskEmails").checked = s.maskEmails === true;
+      $("retentionDays").value = String(s.retentionDays || 0);
     });
   }
 
@@ -43,8 +51,11 @@
         enabled: $("enabled").checked,
         sensitivity: $("sensitivity").value,
         listChips: $("listChips").checked,
+        maskEmails: $("maskEmails").checked,
+        retentionDays: Number($("retentionDays").value) || 0,
       },
     });
+    loadHistory();
   }
 
   function loadLast() {
@@ -54,7 +65,20 @@
     });
   }
 
+  function downloadReport() {
+    if (!lastScan) return;
+    try {
+      if (globalThis.SentAIReport && typeof globalThis.SentAIReport.note === "function") {
+        globalThis.SentAIReport.note(lastScan, "report.exported", "downloaded forensic report (html)");
+      }
+      if (globalThis.SentAIReport && typeof globalThis.SentAIReport.download === "function") {
+        globalThis.SentAIReport.download("html", lastScan);
+      }
+    } catch {}
+  }
+
   function renderLast(scan) {
+    lastScan = scan;
     $("lastScan").classList.remove("hidden");
     const score = scan.result ? scan.result.riskScore : scan.score;
     const cls = scan.result ? scan.result.riskLabel : scan.riskLabel;
