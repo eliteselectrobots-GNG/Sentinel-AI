@@ -77,9 +77,41 @@ sideloading. Run `npm run check:extension` first to validate syntax.
 - **Removal request handling**: unattended since no data ever leaves the device
   except enrichment requests described in `PRIVACY.md`.
 
+### C++ detection core (WebAssembly)
+
+The deterministic half of the detection engine — header parsing, risk scoring,
+relay reconstruction, IoC extraction, lookalike/domain/URL analysis, attachment
+and language detection, campaign clustering — is written in C++ and compiled to
+WebAssembly. The extension loads it after the JavaScript engine and uses it for
+those functions; everything else (live DNS/geo/intel lookups and the storage
+bridge) stays in JavaScript.
+
+```sh
+npm run build:core           # compile the core to extension/engine/sentinel-wasm.js
+npm run test:core            # parity: C++ (native) vs. the JavaScript engine
+npm run test:core:wasm       # parity: C++ (WebAssembly) vs. the JavaScript engine
+npm run test:core:integration # extension load order + fallback behaviour
+npm run build:core:native    # compile with the local g++ and run every test
+```
+
+Building the core needs [Emscripten](https://emscripten.org). The build script
+looks for `em++` on `PATH`, then in a project-local toolchain at
+`extension/core/.toolchain/emsdk`, then via `EMXX`/`EMCC`:
+
+```sh
+git clone https://github.com/emscripten-core/emsdk.git extension/core/.toolchain/emsdk
+cd extension/core/.toolchain/emsdk && ./emsdk install latest && ./emsdk activate latest
+```
+
+The JavaScript engine remains the safety net: if `sentinel-wasm.js` is missing or
+WebAssembly cannot instantiate, the extension behaves exactly as it did before.
+Every ported function is covered by parity tests that assert byte-identical
+output against the JavaScript engine.
+
 ### Extension layout
 
-- `engine/` – bundled detection engine + build script (`build.cjs`)
+- `core/` – C++ detection core, native build script and parity/integration tests
+- `engine/` – bundled detection engine, compiled core + build scripts (`build.cjs`, `build-core.cjs`)
 - `content/` – content scripts (banner, modal, list chips, delete, dismissals)
 - `background/` – service worker: persists scans, DNS enrichment, badge
 - `ui/` – toolbar popup and full analysis side panel

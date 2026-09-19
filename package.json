@@ -11,8 +11,13 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "build:extension": "node extension/build.cjs",
+    "build:core": "node extension/build-core.cjs",
+    "build:core:native": "bash extension/core/build-native.sh",
+    "test:core": "node extension/core/test/parity.mjs",
+    "test:core:wasm": "node extension/core/test/parity.mjs --wasm",
+    "test:core:integration": "node extension/core/test/integration.mjs",
     "package:extension": "npm run build:extension && node extension/zip.cjs",
-    "check:extension": "node extension/build.cjs && node --check extension/background/service-worker.js && node --check extension/background/chrome-storage.js && node --check extension/content/chrome-storage.js && node --check extension/content/providers.js && node --check extension/content/adaptor.js && node --check extension/content/injector.js && node --check extension/ui/shared-storage.js && node --check extension/ui/popup.js && node --check extension/ui/side-panel.js"
+    "check:extension": "node extension/build.cjs && node --check extension/background/service-worker.js && node --check extension/background/chrome-storage.js && node --check extension/content/chrome-storage.js && node --check extension/content/providers.js && node --check extension/content/adaptor.js && node --check extension/content/injector.js && node --check extension/engine/sentinel-core.js && node --check extension/ui/shared-storage.js && node --check extension/ui/popup.js && node --check extension/ui/side-panel.js"
   },
   "overrides": {
     "rolldown": "1.2.1"

@@ -9,7 +9,9 @@ const distDir = path.join(root, "dist");
 const version = require(path.join(extDir, "manifest.json")).version;
 const outZip = path.join(distDir, `sentinel-ai-v${version}.zip`);
 
-const EXCLUDE = new Set(["build.cjs", "smoke-test.cjs", "zip.cjs", "entry.ts"]);
+// `core` holds the C++ sources plus the local build/toolchain directories, none
+// of which belong in the shipped extension.
+const EXCLUDE = new Set(["build.cjs", "build-core.cjs", "smoke-test.cjs", "zip.cjs", "entry.ts", "core"]);
 
 function collect(dir, rel) {
   const entries = [];

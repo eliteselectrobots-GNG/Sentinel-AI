@@ -10,6 +10,10 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+
+# C++ detection core: native build output + project-local Emscripten toolchain
+extension/core/.build/
+extension/core/.toolchain/
 .output
 .vinxi
 .tanstack/**

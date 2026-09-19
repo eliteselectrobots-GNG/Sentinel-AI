@@ -1,4 +1,9 @@
-self.importScripts("engine/detection-bundle.js", "chrome-storage.js");
+self.importScripts(
+  "engine/detection-bundle.js",
+  "engine/sentinel-wasm.js",
+  "engine/sentinel-core.js",
+  "chrome-storage.js",
+);
 
 const D = self.SentAIDetection;
 

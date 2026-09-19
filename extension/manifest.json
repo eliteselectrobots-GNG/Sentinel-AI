@@ -8,6 +8,9 @@
   "author": "Sentinel AI Team",
   "homepage_url": "https://github.com/eliteselectrobots-GNG/Cyber-Sentinel-ai",
   "permissions": ["storage", "sidePanel"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
   "host_permissions": [
     "https://mail.google.com/*",
     "https://outlook.live.com/*",
@@ -47,6 +50,8 @@
       ],
       "js": [
         "engine/detection-bundle.js",
+        "engine/sentinel-wasm.js",
+        "engine/sentinel-core.js",
         "content/chrome-storage.js",
         "content/providers.js",
         "content/adaptor.js",
