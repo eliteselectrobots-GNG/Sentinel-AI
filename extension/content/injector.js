@@ -29,8 +29,41 @@
   let currentMode = "list";
 
   const host = { root: null, shadow: null };
+  const inlineHost = { root: null, shadow: null };
   const modal = { root: null, shadow: null, open: false };
   const confirm = { root: null, shadow: null, open: false };
+
+  function ensureInlineHost(anchor) {
+    if (inlineHost.root && inlineHost.shadow && inlineHost.root.isConnected) {
+      if (anchor && inlineHost.root.nextElementSibling !== anchor) {
+        anchor.parentElement?.insertBefore(inlineHost.root, anchor);
+      }
+      return inlineHost;
+    }
+    const wrapper = document.createElement("div");
+    wrapper.id = "sentinel-ai-inline-host";
+    wrapper.style.cssText = "all:initial; display:block; width:100%; z-index:100; margin-bottom:12px;";
+    if (anchor && anchor.parentElement) {
+      anchor.parentElement.insertBefore(wrapper, anchor);
+    } else {
+      (document.body || document.documentElement).appendChild(wrapper);
+    }
+    const shadow = wrapper.attachShadow({ mode: "open" });
+    const style = document.createElement("style");
+    style.textContent = SHADOW_CSS;
+    shadow.appendChild(style);
+    inlineHost.root = wrapper;
+    inlineHost.shadow = shadow;
+    return inlineHost;
+  }
+
+  function removeInlineBanner() {
+    if (inlineHost.root) {
+      inlineHost.root.remove();
+      inlineHost.root = null;
+      inlineHost.shadow = null;
+    }
+  }
 
   const uid = () => Math.random().toString(36).slice(2, 10);
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
@@ -41,6 +74,7 @@
 .sai-banner{position:fixed;top:12px;right:12px;width:400px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;border-radius:14px;padding:14px 16px;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.45;color:#eef2f6;
   box-shadow:0 18px 50px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.06);animation:saiPop .25s ease}
+.sai-banner.sai-inline{position:relative;top:auto;right:auto;width:100%;max-width:none;max-height:none;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.06);}
 @keyframes saiPop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 .sai-critical{background:linear-gradient(180deg,#7f1d1d,#450a0a);border:1px solid #f87171}
 .sai-high{background:linear-gradient(180deg,#7c2d12,#431407);border:1px solid #fdba74}
@@ -172,12 +206,8 @@
     "notion.so", "slack.com", "zoom.us", "figma.com", "vercel.com",
   ];
 
-  function isTrustedSender(senderEmail) {
-    const e = String(senderEmail || "").toLowerCase().trim();
-    const at = e.lastIndexOf("@");
-    if (at <= 0) return false;
-    const domain = e.slice(at + 1);
-    return TRUSTED_SENDER_DOMAINS.some((d) => domain === d || domain.endsWith("." + d));
+  function isTrustedSender(_senderEmail) {
+    return false;
   }
 
   /* ------------------------------------------------------------------ */
@@ -259,23 +289,24 @@
     if (!settings.enabled) return;
     const hover = !!(opts && opts.hover);
     const tone = bannerTone(scan.classification.className, scan.result.riskScore);
-    if (!hover) {
-      const illuminate = shouldIlluminate(scan.result.riskScore, scan.classification.className);
-      if (!illuminate) {
-        removeBanner();
-        return;
+    const isInline = !hover && opts && opts.ext && opts.ext.bannerAnchor;
+    let targetShadow;
+    if (isInline) {
+      const inlineH = ensureInlineHost(opts.ext.bannerAnchor);
+      targetShadow = inlineH.shadow;
+    } else {
+      ensureHost();
+      if (hover) {
+        const oldHud = host.shadow.querySelector(".sai-hud");
+        if (oldHud) oldHud.remove();
       }
-    }
-    ensureHost();
-    if (hover) {
-      const oldHud = host.shadow.querySelector(".sai-hud");
-      if (oldHud) oldHud.remove();
+      targetShadow = host.shadow;
     }
     const s = scan;
     const title = CLASS_META[s.classification.className]?.label || s.result.riskLabel;
     const mainTone = classTone(s.classification.className);
 
-    const card = el("div", { class: `sai-banner sai-${tone}` });
+    const card = el("div", { class: `sai-banner sai-${tone} ${isInline ? "sai-inline" : ""}` });
     card.dataset.tone = tone;
     const header = el("div", { class: "sai-banner-head" }, card);
 
@@ -300,7 +331,7 @@
     let titleText = isCritical
       ? "⚠ Do not click links or reply to this message"
       : "⚠ Verify before acting on this message";
-    if (hover && tone === "low") titleText = `Looks safe — risk index ${s.result.riskScore}/100`;
+    if (tone === "low") titleText = `Looks safe — risk index ${s.result.riskScore}/100`;
     const titleEl = el("div", { class: `sai-title sai-title-${isCritical ? "critical" : "warn"}` }, body);
     titleEl.textContent = titleText;
 
@@ -342,7 +373,7 @@
     const info = el("div", { class: "sai-info" }, card);
     info.textContent = `${s.result.sender || s.result.senderAddress} · ${s.result.subject || "no subject"}`;
 
-    replaceInShadow(host.shadow, card);
+    replaceInShadow(targetShadow, card);
   }
 
   function removeBanner() {
@@ -350,6 +381,7 @@
       const existing = host.shadow.querySelector(".sai-banner");
       if (existing) existing.remove();
     }
+    removeInlineBanner();
   }
 
   /* ------------------------------------------------------------------ */
@@ -1131,14 +1163,17 @@
       removeHud();
       // Ignore mail still animating in/out of the reading pane: the extractor
       // would scrape half-removed DOM and scan garbage fragments of other mail.
+      // Retry with a cap — the first scan often lands mid-transition and must
+      // not be silently dropped (otherwise no popup ever appears).
       if (isViewTransitioning()) {
         scanInFlight = false;
-        if (pendingScan) {
-          pendingScan = false;
-          setTimeout(() => scanOpenEmail(), 350);
-        }
+        pendingScan = false;
+        const n = (scanOpenEmail._retry || 0) + 1;
+        scanOpenEmail._retry = n;
+        if (n <= 10) setTimeout(() => scanOpenEmail(), 350);
         return;
       }
+      scanOpenEmail._retry = 0;
       // System mail from trusted infrastructure senders never gets a banner.
       const fromEmail = String(ext.senderEmail || "").toLowerCase();
       if (fromEmail && isTrustedSender(fromEmail)) {
@@ -1148,6 +1183,7 @@
       }
       const scan = await A.scan(ext);
       currentScan = scan;
+      console.info("[Sentinel AI] open-mail verdict:", scan.result.riskLabel, scan.result.riskScore, scan.result.subject);
       if (isDismissed(scan)) {
         removeBanner();
       } else {
@@ -1259,11 +1295,20 @@
       const sig = `${row.senderEmail || row.sender || ""}|${row.subject || ""}`;
       if (!sig || sig === "|") continue;
       rowData.set(sig, row);
+      // Gmail recycles row DOM nodes on scroll/pagination: the same TR can
+      // show a different mail. Detect the sig change, drop the stale chip,
+      // and re-scan instead of skipping as already-processed.
+      if (row.rowEl.dataset.sentinelSig && row.rowEl.dataset.sentinelSig !== sig) {
+        const stale = row.rowEl.querySelector(".sentinel-ai-chip");
+        if (stale) stale.remove();
+        delete row.rowEl.dataset.sentinel;
+        processedRows.delete(row.rowEl);
+      }
       bindRowHover(row.rowEl, sig);
-      if (processedRows.has(row.rowEl)) continue;
+      if (processedRows.has(row.rowEl) && row.rowEl.dataset.sentinel !== undefined) continue;
       if (isTrustedSender(row.senderEmail)) continue; // system mail: no chips, no HUD entry
       if (rowCache.has(sig)) {
-        if (row.rowEl.dataset.sentinel === undefined) styleRow(row.rowEl, rowCache.get(sig));
+        styleRow(row.rowEl, rowCache.get(sig));
         continue;
       }
       queue.push({ row, sig });
@@ -1274,7 +1319,23 @@
     }
     for (const item of queue) {
       A.prescan(item.row.subject, item.row.sender, item.row.senderEmail, item.row.snippet).then((res) => {
-        if (!res) return;
+        if (!res) {
+          // Engine hiccup — never leave a row chipless. Retry once if the
+          // row is still showing the same mail.
+          setTimeout(() => {
+            if (!item.row.rowEl.isConnected) return;
+            if (item.row.rowEl.dataset.sentinel !== undefined) return;
+            A.prescan(item.row.subject, item.row.sender, item.row.senderEmail, item.row.snippet).then((retry) => {
+              if (!retry) return;
+              rowCache.set(item.sig, retry);
+              bindRowHover(item.row.rowEl, item.sig);
+              styleRow(item.row.rowEl, retry);
+              if (hudMode === "intro") renderHud(hudRowResult("__max__"));
+              sendBadgeList();
+            });
+          }, 2000);
+          return;
+        }
         rowCache.set(item.sig, res);
         bindRowHover(item.row.rowEl, item.sig);
         if (rowCache.size > 800) {
@@ -1295,9 +1356,13 @@
   }
 
   function styleRow(rowEl, res) {
-    if (processedRows.has(rowEl)) return;
+    if (!res) return;
+    // Drop any stale chip from a previous mail that shared this DOM node.
+    const stale = rowEl.querySelector(".sentinel-ai-chip");
+    if (stale) stale.remove();
+    if (processedRows.has(rowEl) && rowEl.dataset.sentinel !== undefined) return;
     processedRows.add(rowEl);
-    if (rowEl.dataset.sentinel) return;
+    if (rowEl.dataset.sentinel !== undefined) return;
     if (!settings.listChips) {
       rowEl.dataset.sentinel = "1";
       return;

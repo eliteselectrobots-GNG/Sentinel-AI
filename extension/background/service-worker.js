@@ -1,9 +1,18 @@
-self.importScripts(
-  "engine/detection-bundle.js",
-  "engine/sentinel-wasm.js",
-  "engine/sentinel-core.js",
+// Each import is isolated so one missing/broken file can never take down
+// registration — message handlers already answer "engine-unavailable"
+// when the engine didn't load.
+for (const script of [
+  "../engine/detection-bundle.js",
+  "../engine/sentinel-wasm.js",
+  "../engine/sentinel-core.js",
   "chrome-storage.js",
-);
+]) {
+  try {
+    self.importScripts(script);
+  } catch (error) {
+    console.warn("[Sentinel AI] background import failed:", script, error);
+  }
+}
 
 const D = self.SentAIDetection;
 
@@ -120,7 +129,14 @@ function handleScan(message, sender) {
   scan.eventLog.push({ t: Date.now(), e: "scan.stored", d: "scanned and classified locally" });
 
   if (D && typeof D.addScan === "function") {
-    D.addScan(scan).catch(() => {});
+    D.addScan(scan)
+      .then(() => {
+        // Tick storage so open side panels / popups refresh via onChanged.
+        try {
+          chrome.storage.local.set({ lastScanAt: Date.now() });
+        } catch {}
+      })
+      .catch(() => {});
   }
 
   const tabId = sender.tab?.id;

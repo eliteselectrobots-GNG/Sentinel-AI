@@ -33,6 +33,16 @@
     "If you already clicked a link or replied: change passwords now, enable 2-factor authentication, and alert your security team.",
   ];
 
+  function showEmpty() {
+    $("empty").classList.remove("hidden");
+    $("content").classList.add("hidden");
+  }
+
+  function showContent() {
+    $("empty").classList.add("hidden");
+    $("content").classList.remove("hidden");
+  }
+
   function init() {
     let selected = $("scanSelect");
     selected.addEventListener("change", () => {
@@ -60,25 +70,60 @@
       selectedId = res.lastSelectedScan || null;
       load();
     });
+
+    // Live refresh: the panel loads once at open, but scans arrive later
+    // (content script -> background). Refresh on storage ticks, on focus,
+    // and on a light poll so "No emails scanned yet" never goes stale.
+    try {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== "local") return;
+        if (changes.lastScanAt || changes.settings) refresh();
+      });
+    } catch {}
+    try {
+      chrome.runtime.onMessage.addListener((msg) => {
+        if (msg && typeof msg.type === "string" && msg.type.startsWith("sentinel:")) refresh();
+      });
+    } catch {}
+    window.addEventListener("focus", () => refresh());
+    setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, 2500);
+  }
+
+  let refreshing = false;
+  function refresh() {
+    if (refreshing) return;
+    refreshing = true;
+    load().finally(() => {
+      refreshing = false;
+    });
   }
 
   async function load() {
     try {
-      scans = (await D.listScans()) || [];
+      const next = (await D.listScans()) || [];
+      // Keep the user's selection when possible; drop it when cleared.
+      if (selectedId && !next.some((s) => s.id === selectedId)) selectedId = null;
+      scans = next;
     } catch {
       scans = [];
     }
     if (scans.length === 0) {
-      $("empty").classList.remove("hidden");
-      $("content").classList.add("hidden");
+      current = null;
+      showEmpty();
       return;
     }
-    $("empty").classList.add("hidden");
-    $("content").classList.remove("hidden");
+    showContent();
     render();
   }
 
   function render() {
+    if (!scans.length) {
+      showEmpty();
+      return;
+    }
+    showContent();
     const sel = $("scanSelect");
     const prev = selectedId;
     sel.innerHTML = "";
