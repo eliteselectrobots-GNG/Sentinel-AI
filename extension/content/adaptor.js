@@ -73,12 +73,19 @@
         const result = await D.scanEmail(raw);
         const stored = D.toStoredScan(raw, result);
         const cls = D.classifyEmail(stored, [], "");
+        // Headerless preview: the full scan adds +8 when no Received headers
+        // exist, which unfairly taxes every list row. Waive it here.
+        const hasRelay = (result.findings || []).some((f) => f.label === "Relay path reconstructed");
+        const score = Math.max(0, result.riskScore - (hasRelay ? 0 : 8));
         return {
-          score: result.riskScore,
-          riskLabel: result.riskLabel,
+          score,
+          riskLabel: score >= 75 ? "Critical" : score >= 55 ? "High" : score >= 30 ? "Medium" : "Low",
           className: cls.className,
           confidence: cls.confidence,
           drivers: (cls.evidence || []).filter((f) => f.severity !== "info").slice(0, 3).map((f) => f.label),
+          subject: cleanField(subject) || "",
+          sender: cleanField(senderEmail) || cleanField(sender) || "",
+          senderEmail: cleanField(senderEmail) || "",
         };
       } catch {
         return null;

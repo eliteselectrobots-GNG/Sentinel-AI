@@ -1,14 +1,126 @@
-import { AlertTriangle, ArrowUpRight, CheckCircle2, ChevronRight, Database, Fingerprint, FlaskConical, ListTree, MailWarning, Network, Route, Search, Server, Share2, ShieldCheck, Zap } from "lucide-react";
-import { useMemo, useState, type CSSProperties } from "react";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  CheckCircle2,
+  ChevronRight,
+  Database,
+  Fingerprint,
+  FlaskConical,
+  ListTree,
+  MailWarning,
+  Network,
+  Route,
+  Search,
+  Server,
+  Share2,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
 import { useReveal } from "@/hooks/use-motion";
-import { timeAgo, Bar, Card, CardHeader, ClassTag, DemoTag, DotLegend, EmptyState, GeoLine, InfraChips, PageHeader, SeverityBadge, Stat, type PageKey } from "./ui";
+import {
+  timeAgo,
+  Bar,
+  Card,
+  CardHeader,
+  ClassTag,
+  DemoTag,
+  DotLegend,
+  EmptyState,
+  GeoLine,
+  InfraChips,
+  PageHeader,
+  SeverityBadge,
+  Stat,
+  type PageKey,
+} from "./ui";
 import { severityDistribution, campaignClusters } from "@/lib/stats";
 import type { StoredScan } from "@/lib/store";
 
-const severityColors: Record<string, string> = { Critical: "#e5484d", High: "#e2c04c", Medium: "#35c7c0", Low: "#53d88a" };
-const signalTone: Record<string, string> = { critical: "bg-status-critical", high: "bg-status-warning", medium: "bg-brand", info: "bg-brand" };
+const severityColors: Record<string, string> = {
+  Critical: "#e5484d",
+  High: "#e2c04c",
+  Medium: "#35c7c0",
+  Low: "#53d88a",
+};
+const signalTone: Record<string, string> = {
+  critical: "bg-status-critical",
+  high: "bg-status-warning",
+  medium: "bg-brand",
+  info: "bg-brand",
+};
+
+/* ------------------------------ Hover inspector ---------------------------- */
+
+/** How long the highest-threat summary stays pinned before hover inspection takes over. */
+const PRIORITY_INTRO_MS = 8000;
+
+function riskToneText(risk: string): string {
+  if (risk === "Critical") return "text-status-critical";
+  if (risk === "High") return "text-status-warning";
+  if (risk === "Medium") return "text-brand";
+  return "text-status-safe";
+}
+
+/**
+ * Live hover inspector. After the intro period the priority banner hands over
+ * to this compact HUD pinned to the top-right: it mirrors whichever queue case
+ * the analyst is hovering, and drops to a neutral "none" state the moment the
+ * pointer leaves the list.
+ */
+function ThreatInspector({ scan }: { scan: StoredScan | null }) {
+  if (!scan) {
+    return (
+      <aside
+        aria-live="polite"
+        className="pointer-events-none fixed right-5 top-24 z-40 w-72 max-w-[calc(100vw-2.5rem)] border border-border bg-surface/95 p-3.5 shadow-command backdrop-blur"
+      >
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="size-4 shrink-0 text-status-safe" />
+          <p className="text-xs font-semibold text-foreground">No threat selected</p>
+        </div>
+        <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+          None — hover a case in the queue to inspect its risk level.
+        </p>
+      </aside>
+    );
+  }
+  const border =
+    scan.result.riskLabel === "Critical"
+      ? "border-status-critical/40"
+      : scan.result.riskLabel === "High"
+        ? "border-status-warning/40"
+        : scan.result.riskLabel === "Medium"
+          ? "border-brand/40"
+          : "border-status-safe/30";
+  return (
+    <aside
+      aria-live="polite"
+      className={`pointer-events-none fixed right-5 top-24 z-40 w-72 max-w-[calc(100vw-2.5rem)] border bg-surface/95 p-3.5 shadow-command backdrop-blur ${border}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Hovered case
+        </p>
+        <SeverityBadge risk={scan.result.riskLabel} />
+      </div>
+      <p className="mt-2 truncate text-xs font-semibold text-foreground">{scan.result.subject}</p>
+      <p className="mt-0.5 truncate font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+        {scan.caseId} · {scan.result.senderAddress}
+      </p>
+      <div className="mt-2.5 flex items-baseline gap-1.5 border-t border-border pt-2.5">
+        <span
+          className={`font-display text-2xl font-semibold tracking-tight ${riskToneText(scan.result.riskLabel)}`}
+        >
+          {scan.result.riskScore}
+        </span>
+        <span className="font-mono text-[10px] text-muted-foreground">/100 risk index</span>
+      </div>
+    </aside>
+  );
+}
 
 function TopSignals({ scans }: { scans: StoredScan[] }) {
   const frequency = useMemo(() => {
@@ -27,9 +139,17 @@ function TopSignals({ scans }: { scans: StoredScan[] }) {
   if (frequency.length === 0) return null;
   return (
     <div className="space-y-3 border-t border-border pt-5">
-      <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Top detected signals</p>
+      <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+        Top detected signals
+      </p>
       {frequency.map(([label, entry]) => (
-        <Bar key={label} label={label} value={String(entry.count)} pct={(entry.count / max) * 100} tone={signalTone[entry.severity] ?? "bg-brand"} />
+        <Bar
+          key={label}
+          label={label}
+          value={String(entry.count)}
+          pct={(entry.count / max) * 100}
+          tone={signalTone[entry.severity] ?? "bg-brand"}
+        />
       ))}
     </div>
   );
@@ -37,19 +157,38 @@ function TopSignals({ scans }: { scans: StoredScan[] }) {
 
 /* ------------------------------ Priority line ----------------------------- */
 
-function PriorityBanner({ scans, openCase }: { scans: StoredScan[]; openCase: (id: string) => void }) {
+function PriorityBanner({
+  scans,
+  openCase,
+  hint = false,
+}: {
+  scans: StoredScan[];
+  openCase: (id: string) => void;
+  hint?: boolean;
+}) {
   if (scans.length === 0) return null;
   const criticalCount = scans.filter((scan) => scan.result.riskLabel === "Critical").length;
   const highCount = scans.filter((scan) => scan.result.riskLabel === "High").length;
-  const priority = scans.find((scan) => scan.result.riskLabel === "Critical") ?? scans.find((scan) => scan.result.riskLabel === "High");
+  const priority =
+    scans.find((scan) => scan.result.riskLabel === "Critical") ??
+    scans.find((scan) => scan.result.riskLabel === "High");
 
   if (!priority) {
     return (
       <section className="mb-6 flex items-center gap-3 border border-status-safe/25 bg-status-safe/5 px-4 py-3">
         <CheckCircle2 className="size-4 shrink-0 text-status-safe" />
         <p className="flex-1 text-xs text-foreground">
-          <span className="font-semibold">Monitoring clear.</span> <span className="text-muted-foreground">{scans.length} case{scans.length === 1 ? "" : "s"} stored — no critical or high-risk verdicts awaiting review.</span>
+          <span className="font-semibold">Monitoring clear.</span>{" "}
+          <span className="text-muted-foreground">
+            {scans.length} case{scans.length === 1 ? "" : "s"} stored — no critical or high-risk
+            verdicts awaiting review.
+          </span>
         </p>
+        {hint && (
+          <p className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-muted-foreground/80">
+            Hover a case to inspect it live
+          </p>
+        )}
       </section>
     );
   }
@@ -59,14 +198,31 @@ function PriorityBanner({ scans, openCase }: { scans: StoredScan[]; openCase: (i
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-critical" />
         <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-xs font-semibold text-status-critical">Priority case awaiting review {criticalCount > 1 && <span className="border border-status-critical/40 bg-status-critical/10 px-1.5 font-mono text-[9px]">+{criticalCount - 1} more critical</span>}</p>
+          <p className="flex flex-wrap items-center gap-2 text-xs font-semibold text-status-critical">
+            Priority case awaiting review{" "}
+            {criticalCount > 1 && (
+              <span className="border border-status-critical/40 bg-status-critical/10 px-1.5 font-mono text-[9px]">
+                +{criticalCount - 1} more critical
+              </span>
+            )}
+          </p>
           <p className="mt-1 truncate text-xs text-foreground">{priority.result.subject}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{priority.caseId} · {priority.result.senderAddress} · {timeAgo(priority.scannedAt)}{highCount > 0 && <span>· {highCount} high risk</span>}</p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+            {priority.caseId} · {priority.result.senderAddress} · {timeAgo(priority.scannedAt)}
+            {highCount > 0 && <span>· {highCount} high risk</span>}
+          </p>
+          {hint && (
+            <p className="mt-1.5 font-mono text-[9px] uppercase tracking-wider text-muted-foreground/80">
+              Hover any case below to inspect it — this priority summary shows on load only.
+            </p>
+          )}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-3">
         <SeverityBadge risk={priority.result.riskLabel} />
-        <Button size="sm" onClick={() => openCase(priority.id)}>Open case <ChevronRight className="size-3.5" /></Button>
+        <Button size="sm" onClick={() => openCase(priority.id)}>
+          Open case <ChevronRight className="size-3.5" />
+        </Button>
       </div>
     </section>
   );
@@ -74,14 +230,34 @@ function PriorityBanner({ scans, openCase }: { scans: StoredScan[]; openCase: (i
 
 /* ------------------------------ Quick access ------------------------------ */
 
-function QuickAccess({ scans, navigate, openScanner, loadDemo }: { scans: StoredScan[]; navigate: (page: PageKey) => void; openScanner: () => void; loadDemo: () => void }) {
+function QuickAccess({
+  scans,
+  navigate,
+  openScanner,
+  loadDemo,
+}: {
+  scans: StoredScan[];
+  navigate: (page: PageKey) => void;
+  openScanner: () => void;
+  loadDemo: () => void;
+}) {
   const critical = scans.filter((scan) => scan.result.riskLabel === "Critical").length;
   const tiles: { page: PageKey | "scan"; label: string; note: string; icon: typeof Network }[] = [
-    { page: "investigations", label: "Investigations", note: "Open cases & verdicts", icon: ListTree },
+    {
+      page: "investigations",
+      label: "Investigations",
+      note: "Open cases & verdicts",
+      icon: ListTree,
+    },
     { page: "scan", label: "Analyze email", note: "Run a new scan", icon: Zap },
     { page: "relay", label: "Relay traces", note: "Origin paths & geolocation", icon: Route },
     { page: "campaign", label: "Threat graph", note: "Cases ↔ domains ↔ IPs", icon: Share2 },
-    { page: "evidence", label: "Evidence vault", note: "Fingerprints & custody log", icon: Database },
+    {
+      page: "evidence",
+      label: "Evidence vault",
+      note: "Fingerprints & custody log",
+      icon: Database,
+    },
     { page: "health", label: "Detection health", note: "Live signal status", icon: ShieldCheck },
   ];
   return (
@@ -89,8 +265,16 @@ function QuickAccess({ scans, navigate, openScanner, loadDemo }: { scans: Stored
       <div className="grid gap-px border border-border bg-border sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {tiles.map((tile) => {
           const Icon = tile.icon;
-          const badge = tile.page === "investigations" && scans.length > 0 ? (critical > 0 ? String(critical) : String(scans.length)) : null;
-          const badgeColor = tile.page === "investigations" && critical > 0 ? "text-status-critical" : "text-muted-foreground";
+          const badge =
+            tile.page === "investigations" && scans.length > 0
+              ? critical > 0
+                ? String(critical)
+                : String(scans.length)
+              : null;
+          const badgeColor =
+            tile.page === "investigations" && critical > 0
+              ? "text-status-critical"
+              : "text-muted-foreground";
           return (
             <button
               key={tile.label}
@@ -104,17 +288,29 @@ function QuickAccess({ scans, navigate, openScanner, loadDemo }: { scans: Stored
                 <Icon className="size-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 text-xs font-semibold text-foreground">{tile.label} {badge && <span className={`font-mono text-[9px] ${badgeColor}`}>{badge}</span>}</span>
-                <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">{tile.note}</span>
+                <span className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                  {tile.label}{" "}
+                  {badge && <span className={`font-mono text-[9px] ${badgeColor}`}>{badge}</span>}
+                </span>
+                <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">
+                  {tile.note}
+                </span>
               </span>
             </button>
           );
         })}
-        <button onClick={loadDemo} className="group flex items-start gap-3 border border-dashed border-border/70 bg-transparent p-4 text-left transition-colors hover:border-brand/40 hover:bg-brand/5">
-          <span className="tile-icon flex size-8 shrink-0 items-center justify-center border border-brand/30 bg-brand/10 text-brand"><FlaskConical className="size-4" /></span>
+        <button
+          onClick={loadDemo}
+          className="group flex items-start gap-3 border border-dashed border-border/70 bg-transparent p-4 text-left transition-colors hover:border-brand/40 hover:bg-brand/5"
+        >
+          <span className="tile-icon flex size-8 shrink-0 items-center justify-center border border-brand/30 bg-brand/10 text-brand">
+            <FlaskConical className="size-4" />
+          </span>
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-semibold text-foreground">Demo dataset</span>
-            <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">Load sample evidence</span>
+            <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">
+              Load sample evidence
+            </span>
           </span>
         </button>
       </div>
@@ -124,9 +320,39 @@ function QuickAccess({ scans, navigate, openScanner, loadDemo }: { scans: Stored
 
 /* --------------------------------- Page ----------------------------------- */
 
-export function OverviewPage({ scans, openScanner, openCase, navigate, notify, loadDemo }: { scans: StoredScan[]; openScanner: () => void; openCase: (id: string) => void; navigate: (page: PageKey) => void; notify: (msg: string) => void; loadDemo: () => void }) {
+export function OverviewPage({
+  scans,
+  openScanner,
+  openCase,
+  navigate,
+  notify,
+  loadDemo,
+}: {
+  scans: StoredScan[];
+  openScanner: () => void;
+  openCase: (id: string) => void;
+  navigate: (page: PageKey) => void;
+  notify: (msg: string) => void;
+  loadDemo: () => void;
+}) {
   const revealRef = useReveal<HTMLDivElement>();
   const [queueQuery, setQueueQuery] = useState("");
+  // Hover inspector: the fixed priority summary is shown only for an initial
+  // period; after that the top-right HUD mirrors whichever case is hovered.
+  const [introActive, setIntroActive] = useState(true);
+  const [hoveredCaseId, setHoveredCaseId] = useState<string | null>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIntroActive(false), PRIORITY_INTRO_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const inspectCase = (id: string) => {
+    setIntroActive(false);
+    setHoveredCaseId(id);
+  };
+  const clearInspectedCase = () => setHoveredCaseId(null);
+  const hoveredScan = hoveredCaseId
+    ? (scans.find((scan) => scan.id === hoveredCaseId) ?? null)
+    : null;
   const distribution = severityDistribution(scans);
   const latest = scans[0];
   const clusters = campaignClusters(scans).filter((c) => c.count >= 2);
@@ -149,8 +375,14 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
         description="One workspace to scan, triage, investigate, and report — everything computed from local evidence."
         actions={
           <>
-            <Button variant="outline" onClick={() => navigate("investigations")}><ListTree className="size-4" />All cases</Button>
-            <Button onClick={openScanner}><Zap className="size-4" />Analyze email</Button>
+            <Button variant="outline" onClick={() => navigate("investigations")}>
+              <ListTree className="size-4" />
+              All cases
+            </Button>
+            <Button onClick={openScanner}>
+              <Zap className="size-4" />
+              Analyze email
+            </Button>
           </>
         }
       />
@@ -159,110 +391,296 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
         <section className="mb-6 overflow-hidden border border-brand/30 bg-gradient-to-br from-brand/10 via-surface to-surface">
           <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-xl">
-              <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">Welcome to AegisTrace</p>
-              <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground">First scan takes under 30 seconds</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">Paste a suspicious email or upload a .eml file. You get an explainable verdict, the relay path, and a verifiable evidence fingerprint — all processed in your browser.</p>
+              <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">
+                Welcome to AegisTrace
+              </p>
+              <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground">
+                First scan takes under 30 seconds
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Paste a suspicious email or upload a .eml file. You get an explainable verdict, the
+                relay path, and a verifiable evidence fingerprint — all processed in your browser.
+              </p>
               <ol className="mt-4 space-y-1.5 text-xs text-muted-foreground">
-                <li className="flex items-center gap-2"><span className="flex size-4 items-center justify-center rounded-full bg-brand/15 font-mono text-[9px] font-semibold text-brand">1</span>Add the raw email or .eml evidence</li>
-                <li className="flex items-center gap-2"><span className="flex size-4 items-center justify-center rounded-full bg-brand/15 font-mono text-[9px] font-semibold text-brand">2</span>Get an explainable risk verdict with findings</li>
-                <li className="flex items-center gap-2"><span className="flex size-4 items-center justify-center rounded-full bg-brand/15 font-mono text-[9px] font-semibold text-brand">3</span>Evidence is stored with a re-verifiable SHA-256 fingerprint</li>
+                <li className="flex items-center gap-2">
+                  <span className="flex size-4 items-center justify-center rounded-full bg-brand/15 font-mono text-[9px] font-semibold text-brand">
+                    1
+                  </span>
+                  Add the raw email or .eml evidence
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="flex size-4 items-center justify-center rounded-full bg-brand/15 font-mono text-[9px] font-semibold text-brand">
+                    2
+                  </span>
+                  Get an explainable risk verdict with findings
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="flex size-4 items-center justify-center rounded-full bg-brand/15 font-mono text-[9px] font-semibold text-brand">
+                    3
+                  </span>
+                  Evidence is stored with a re-verifiable SHA-256 fingerprint
+                </li>
               </ol>
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
-              <Button onClick={openScanner}><Zap className="size-4" />Analyze an email</Button>
-              <Button variant="outline" onClick={loadDemo}><FlaskConical className="size-4" />Or explore with demo data</Button>
+              <Button onClick={openScanner}>
+                <Zap className="size-4" />
+                Analyze an email
+              </Button>
+              <Button variant="outline" onClick={loadDemo}>
+                <FlaskConical className="size-4" />
+                Or explore with demo data
+              </Button>
             </div>
           </div>
         </section>
       )}
 
-      <PriorityBanner scans={scans} openCase={openCase} />
-      <QuickAccess scans={scans} navigate={navigate} openScanner={openScanner} loadDemo={loadDemo} />
+      {introActive ? (
+        <PriorityBanner scans={scans} openCase={openCase} hint />
+      ) : (
+        scans.length > 0 && <ThreatInspector scan={hoveredScan} />
+      )}
+      <QuickAccess
+        scans={scans}
+        navigate={navigate}
+        openScanner={openScanner}
+        loadDemo={loadDemo}
+      />
 
-      <section className="reveal mb-6 grid gap-px border border-border bg-border sm:grid-cols-2 xl:grid-cols-4" aria-label="Live summary" style={{ "--reveal-delay": "60ms" } as CSSProperties}>
-        <Stat label="Emails analyzed" value={String(scans.length)} sub={scans.length === 0 ? "no scans yet" : `${scans.length === 1 ? "record" : "records"} stored locally`} icon={MailWarning} tone="brand" />
-        <Stat label="Latest risk index" value={latest ? String(latest.result.riskScore) : "—"} suffix={latest ? "/100" : ""} sub={latest ? `${latest.result.riskLabel} · ${timeAgo(latest.scannedAt)}` : "no scans yet"} icon={Zap} tone={latest?.result.riskLabel === "Critical" ? "critical" : latest?.result.riskLabel === "High" ? "warning" : "brand"} />
-        <Stat label="Critical alerts" value={String(criticalCount)} sub={criticalCount === 1 ? "needs review" : criticalCount > 1 ? "need review" : "none open"} icon={AlertTriangle} tone={criticalCount > 0 ? "critical" : "brand"} />
-        <Stat label="Evidence fingerprints" value={String(scans.length)} sub="SHA-256 · local" icon={Fingerprint} tone="safe" />
+      <section
+        className="reveal mb-6 grid gap-px border border-border bg-border sm:grid-cols-2 xl:grid-cols-4"
+        aria-label="Live summary"
+        style={{ "--reveal-delay": "60ms" } as CSSProperties}
+      >
+        <Stat
+          label="Emails analyzed"
+          value={String(scans.length)}
+          sub={
+            scans.length === 0
+              ? "no scans yet"
+              : `${scans.length === 1 ? "record" : "records"} stored locally`
+          }
+          icon={MailWarning}
+          tone="brand"
+        />
+        <Stat
+          label="Latest risk index"
+          value={latest ? String(latest.result.riskScore) : "—"}
+          suffix={latest ? "/100" : ""}
+          sub={
+            latest ? `${latest.result.riskLabel} · ${timeAgo(latest.scannedAt)}` : "no scans yet"
+          }
+          icon={Zap}
+          tone={
+            latest?.result.riskLabel === "Critical"
+              ? "critical"
+              : latest?.result.riskLabel === "High"
+                ? "warning"
+                : "brand"
+          }
+        />
+        <Stat
+          label="Critical alerts"
+          value={String(criticalCount)}
+          sub={
+            criticalCount === 1 ? "needs review" : criticalCount > 1 ? "need review" : "none open"
+          }
+          icon={AlertTriangle}
+          tone={criticalCount > 0 ? "critical" : "brand"}
+        />
+        <Stat
+          label="Evidence fingerprints"
+          value={String(scans.length)}
+          sub="SHA-256 · local"
+          icon={Fingerprint}
+          tone="safe"
+        />
       </section>
 
-      <div className="reveal grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)]" style={{ "--reveal-delay": "120ms" } as CSSProperties}>
+      <div
+        className="reveal grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)]"
+        style={{ "--reveal-delay": "120ms" } as CSSProperties}
+      >
         <Card labelledBy="queue-heading">
           <CardHeader
             id="queue-heading"
             title="Investigation queue"
-            subtitle={scans.length > 0 ? `${scans.length} case${scans.length === 1 ? "" : "s"} · prioritized by risk — click any row to investigate` : "Prioritized by risk score"}
-            right={<Button variant="ghost" size="sm" onClick={() => navigate("investigations")}>View all <ArrowUpRight className="size-3.5" /></Button>}
+            subtitle={
+              scans.length > 0
+                ? `${scans.length} case${scans.length === 1 ? "" : "s"} · prioritized by risk — click any row to investigate`
+                : "Prioritized by risk score"
+            }
+            right={
+              <Button variant="ghost" size="sm" onClick={() => navigate("investigations")}>
+                View all <ArrowUpRight className="size-3.5" />
+              </Button>
+            }
           />
           {scans.length === 0 ? (
-            <EmptyState title="No investigations yet" detail="Analyze an email to start your first case, or load the demo dataset to see the full workflow." action={<Button size="sm" onClick={openScanner}>Analyze email</Button>} />
+            <EmptyState
+              title="No investigations yet"
+              detail="Analyze an email to start your first case, or load the demo dataset to see the full workflow."
+              action={
+                <Button size="sm" onClick={openScanner}>
+                  Analyze email
+                </Button>
+              }
+            />
           ) : (
             <>
               <div className="flex items-center gap-2 border-b border-border px-3 py-2">
                 <Search className="size-3.5 shrink-0 text-muted-foreground" />
-                <input aria-label="Search the investigation queue" value={queueQuery} onChange={(event) => setQueueQuery(event.target.value)} placeholder="Search sender, subject, IP, case id…" className="h-7 w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
-                {queueQuery && <span className="shrink-0 font-mono text-[9px] text-muted-foreground">{queue.length}/{scans.length}</span>}
+                <input
+                  aria-label="Search the investigation queue"
+                  value={queueQuery}
+                  onChange={(event) => setQueueQuery(event.target.value)}
+                  placeholder="Search sender, subject, IP, case id…"
+                  className="h-7 w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                {queueQuery && (
+                  <span className="shrink-0 font-mono text-[9px] text-muted-foreground">
+                    {queue.length}/{scans.length}
+                  </span>
+                )}
               </div>
-              <div className="divide-y divide-border">
-                {queue.length === 0 && <p className="px-4 py-6 text-center text-xs text-muted-foreground">No cases match “{queueQuery}”.</p>}
+              <div className="divide-y divide-border" onMouseLeave={clearInspectedCase}>
+                {queue.length === 0 && (
+                  <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+                    No cases match “{queueQuery}”.
+                  </p>
+                )}
                 {queue.slice(0, 8).map((scan, index) => (
-                <button key={scan.id} style={{ "--row-delay": `${Math.min(index, 6) * 45}ms` } as React.CSSProperties} onClick={() => openCase(scan.id)} className="row-enter flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-elevated sm:gap-4">
-                  <div className={`flex size-9 shrink-0 items-center justify-center text-[11px] font-semibold ${scan.result.riskLabel === "Critical" ? "bg-status-critical/15 text-status-critical" : scan.result.riskLabel === "High" ? "bg-status-warning/15 text-status-warning" : scan.result.riskLabel === "Medium" ? "bg-brand/10 text-brand" : "bg-status-safe/10 text-status-safe"}`}>
-                    {scan.result.sender.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <p className="text-xs font-semibold text-foreground">{scan.result.sender}</p>
-                      <ClassTag scan={scan} scans={scans} />
-                      {scan.demo && <DemoTag />}
-                      <span className="text-[10px] text-muted-foreground">{timeAgo(scan.scannedAt)}</span>
+                  <button
+                    key={scan.id}
+                    style={{ "--row-delay": `${Math.min(index, 6) * 45}ms` } as React.CSSProperties}
+                    onClick={() => openCase(scan.id)}
+                    onMouseEnter={() => inspectCase(scan.id)}
+                    onFocus={() => inspectCase(scan.id)}
+                    onBlur={clearInspectedCase}
+                    className="row-enter flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-elevated sm:gap-4"
+                  >
+                    <div
+                      className={`flex size-9 shrink-0 items-center justify-center text-[11px] font-semibold ${scan.result.riskLabel === "Critical" ? "bg-status-critical/15 text-status-critical" : scan.result.riskLabel === "High" ? "bg-status-warning/15 text-status-warning" : scan.result.riskLabel === "Medium" ? "bg-brand/10 text-brand" : "bg-status-safe/10 text-status-safe"}`}
+                    >
+                      {scan.result.sender.slice(0, 2).toUpperCase()}
                     </div>
-                    <p className="mt-1 truncate text-sm text-muted-foreground">{scan.result.subject}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <div className="flex flex-col items-end gap-0.5">
-                      <span className={`font-mono text-sm font-semibold ${scan.result.riskLabel === "Critical" ? "text-status-critical" : scan.result.riskLabel === "High" ? "text-status-warning" : "text-brand"}`}>{scan.result.riskScore}</span>
-                      <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">risk</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="text-xs font-semibold text-foreground">
+                          {scan.result.sender}
+                        </p>
+                        <ClassTag scan={scan} scans={scans} />
+                        {scan.demo && <DemoTag />}
+                        <span className="text-[10px] text-muted-foreground">
+                          {timeAgo(scan.scannedAt)}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-sm text-muted-foreground">
+                        {scan.result.subject}
+                      </p>
                     </div>
-                    <ChevronRight className="hidden size-4 text-muted-foreground sm:block" />
-                  </div>
-                </button>
-              ))}
-            </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span
+                          className={`font-mono text-sm font-semibold ${scan.result.riskLabel === "Critical" ? "text-status-critical" : scan.result.riskLabel === "High" ? "text-status-warning" : "text-brand"}`}
+                        >
+                          {scan.result.riskScore}
+                        </span>
+                        <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                          risk
+                        </span>
+                      </div>
+                      <ChevronRight className="hidden size-4 text-muted-foreground sm:block" />
+                    </div>
+                  </button>
+                ))}
+              </div>
             </>
           )}
         </Card>
 
         <Card labelledBy="posture-heading">
-          <CardHeader id="posture-heading" title="Detection posture" subtitle="Risk distribution across stored verdicts" right={<Button variant="ghost" size="icon" aria-label="View investigations" onClick={() => navigate("investigations")}><ArrowUpRight className="size-4" /></Button>} />
+          <CardHeader
+            id="posture-heading"
+            title="Detection posture"
+            subtitle="Risk distribution across stored verdicts"
+            right={
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="View investigations"
+                onClick={() => navigate("investigations")}
+              >
+                <ArrowUpRight className="size-4" />
+              </Button>
+            }
+          />
           {scans.length === 0 ? (
-            <EmptyState title="Nothing to measure yet" detail="Run a few scans and the severity distribution will appear here." />
+            <EmptyState
+              title="Nothing to measure yet"
+              detail="Run a few scans and the severity distribution will appear here."
+            />
           ) : (
             <div className="space-y-5 p-5">
               <div className="flex items-center gap-6">
                 <div className="relative size-36 shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={[
-                        { name: "Critical", value: distribution.Critical, fill: severityColors["Critical"] },
-                        { name: "High", value: distribution.High, fill: severityColors["High"] },
-                        { name: "Medium", value: distribution.Medium, fill: severityColors["Medium"] },
-                        { name: "Low", value: distribution.Low, fill: severityColors["Low"] },
-                      ]} dataKey="value" nameKey="name" innerRadius={46} outerRadius={64} paddingAngle={2} strokeWidth={0}>
-                        {(["Critical", "High", "Medium", "Low"] as const).map((key) => <Cell key={key} fill={severityColors[key]} />)}
+                      <Pie
+                        data={[
+                          {
+                            name: "Critical",
+                            value: distribution.Critical,
+                            fill: severityColors["Critical"],
+                          },
+                          { name: "High", value: distribution.High, fill: severityColors["High"] },
+                          {
+                            name: "Medium",
+                            value: distribution.Medium,
+                            fill: severityColors["Medium"],
+                          },
+                          { name: "Low", value: distribution.Low, fill: severityColors["Low"] },
+                        ]}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={46}
+                        outerRadius={64}
+                        paddingAngle={2}
+                        strokeWidth={0}
+                      >
+                        {(["Critical", "High", "Medium", "Low"] as const).map((key) => (
+                          <Cell key={key} fill={severityColors[key]} />
+                        ))}
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="font-display text-xl font-semibold text-foreground">{scans.length}</p>
-                    <p className="font-mono text-[8px] uppercase tracking-wider text-muted-foreground">scans</p>
+                    <p className="font-display text-xl font-semibold text-foreground">
+                      {scans.length}
+                    </p>
+                    <p className="font-mono text-[8px] uppercase tracking-wider text-muted-foreground">
+                      scans
+                    </p>
                   </div>
                 </div>
                 <div className="min-w-0 flex-1 space-y-3">
-                  <DotLegend color="bg-status-critical" label="Critical" value={String(distribution.Critical)} />
-                  <DotLegend color="bg-status-warning" label="High" value={String(distribution.High)} />
+                  <DotLegend
+                    color="bg-status-critical"
+                    label="Critical"
+                    value={String(distribution.Critical)}
+                  />
+                  <DotLegend
+                    color="bg-status-warning"
+                    label="High"
+                    value={String(distribution.High)}
+                  />
                   <DotLegend color="bg-brand" label="Medium" value={String(distribution.Medium)} />
-                  <DotLegend color="bg-muted-foreground/40" label="Low / clean" value={String(distribution.Low)} />
+                  <DotLegend
+                    color="bg-muted-foreground/40"
+                    label="Low / clean"
+                    value={String(distribution.Low)}
+                  />
                 </div>
               </div>
               <TopSignals scans={scans} />
@@ -271,22 +689,59 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
         </Card>
       </div>
 
-      <div className="reveal mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(330px,0.7fr)]" style={{ "--reveal-delay": "180ms" } as CSSProperties}>
+      <div
+        className="reveal mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(330px,0.7fr)]"
+        style={{ "--reveal-delay": "180ms" } as CSSProperties}
+      >
         <RelayTraceCard scans={scans} navigate={navigate} />
         <Card labelledBy="campaign-heading">
-          <CardHeader id="campaign-heading" title="Campaign intelligence" subtitle="Infrastructure shared across cases" right={<Button variant="ghost" size="icon" aria-label="Open campaign graph" onClick={() => navigate("campaign")}><Share2 className="size-4" /></Button>} />
+          <CardHeader
+            id="campaign-heading"
+            title="Campaign intelligence"
+            subtitle="Infrastructure shared across cases"
+            right={
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Open campaign graph"
+                onClick={() => navigate("campaign")}
+              >
+                <Share2 className="size-4" />
+              </Button>
+            }
+          />
           {clusters.length === 0 ? (
-            <EmptyState title="No shared infrastructure yet" detail="When two or more scans share an origin IP or sender domain, the correlation appears here." />
+            <EmptyState
+              title="No shared infrastructure yet"
+              detail="When two or more scans share an origin IP or sender domain, the correlation appears here."
+            />
           ) : (
             <div className="space-y-4 p-5">
               {clusters.map((cluster) => (
-                <button key={cluster.key} onClick={() => navigate("campaign")} className="flex w-full items-center gap-3 border-b border-border pb-4 text-left last:border-0 last:pb-0">
-                  <div className={`flex size-8 items-center justify-center ${cluster.worstRisk >= 75 ? "bg-status-critical/10 text-status-critical" : cluster.worstRisk >= 55 ? "bg-status-warning/10 text-status-warning" : "bg-brand/10 text-brand"}`}><Network className="size-4" /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold text-foreground">{cluster.label}</p>
-                    <p className="mt-1 font-mono text-[10px] text-muted-foreground">{cluster.count} scan{cluster.count === 1 ? "" : "s"} · {cluster.origins.length} origin{cluster.origins.length === 1 ? "" : "s"}</p>
+                <button
+                  key={cluster.key}
+                  onClick={() => navigate("campaign")}
+                  className="flex w-full items-center gap-3 border-b border-border pb-4 text-left last:border-0 last:pb-0"
+                >
+                  <div
+                    className={`flex size-8 items-center justify-center ${cluster.worstRisk >= 75 ? "bg-status-critical/10 text-status-critical" : cluster.worstRisk >= 55 ? "bg-status-warning/10 text-status-warning" : "bg-brand/10 text-brand"}`}
+                  >
+                    <Network className="size-4" />
                   </div>
-                  <p className={`font-mono text-sm font-semibold ${cluster.worstRisk >= 75 ? "text-status-critical" : cluster.worstRisk >= 55 ? "text-status-warning" : "text-brand"}`}>{cluster.worstRisk}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold text-foreground">
+                      {cluster.label}
+                    </p>
+                    <p className="mt-1 font-mono text-[10px] text-muted-foreground">
+                      {cluster.count} scan{cluster.count === 1 ? "" : "s"} ·{" "}
+                      {cluster.origins.length} origin{cluster.origins.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <p
+                    className={`font-mono text-sm font-semibold ${cluster.worstRisk >= 75 ? "text-status-critical" : cluster.worstRisk >= 55 ? "text-status-warning" : "text-brand"}`}
+                  >
+                    {cluster.worstRisk}
+                  </p>
                 </button>
               ))}
             </div>
@@ -294,19 +749,51 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
         </Card>
       </div>
 
-      <section className="reveal mt-6 border border-border bg-surface" aria-labelledby="integrity-heading" style={{ "--reveal-delay": "220ms" } as CSSProperties}>
+      <section
+        className="reveal mt-6 border border-border bg-surface"
+        aria-labelledby="integrity-heading"
+        style={{ "--reveal-delay": "220ms" } as CSSProperties}
+      >
         <div className="grid sm:grid-cols-3">
           <div className="flex items-center gap-4 border-b border-border p-5 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
-            <div className="flex size-9 items-center justify-center bg-brand/10 text-brand"><Fingerprint className="size-4" /></div>
-            <div><p className="text-xs text-muted-foreground">SHA-256 evidence records</p><div className="mt-1 flex items-baseline gap-2"><span className="font-display text-xl font-semibold">{scans.length}</span><span className="font-mono text-[9px] text-status-safe">stored locally</span></div></div>
+            <div className="flex size-9 items-center justify-center bg-brand/10 text-brand">
+              <Fingerprint className="size-4" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">SHA-256 evidence records</p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="font-display text-xl font-semibold">{scans.length}</span>
+                <span className="font-mono text-[9px] text-status-safe">stored locally</span>
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-4 border-b border-border p-5 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
-            <div className="flex size-9 items-center justify-center bg-brand/10 text-brand"><Server className="size-4" /></div>
-            <div><p className="text-xs text-muted-foreground">Reconstructed relay hops</p><div className="mt-1 flex items-baseline gap-2"><span className="font-display text-xl font-semibold">{scans.reduce((sum, s) => sum + s.result.hops.length, 0)}</span><span className="font-mono text-[9px] text-muted-foreground">from Received headers</span></div></div>
+            <div className="flex size-9 items-center justify-center bg-brand/10 text-brand">
+              <Server className="size-4" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Reconstructed relay hops</p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="font-display text-xl font-semibold">
+                  {scans.reduce((sum, s) => sum + s.result.hops.length, 0)}
+                </span>
+                <span className="font-mono text-[9px] text-muted-foreground">
+                  from Received headers
+                </span>
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-4 border-b border-border p-5 last:border-b-0 sm:border-b-0">
-            <div className="flex size-9 items-center justify-center bg-brand/10 text-brand"><CheckCircle2 className="size-4" /></div>
-            <div><p className="text-xs text-muted-foreground">Evidence integrity</p><div className="mt-1 flex items-baseline gap-2"><span className="font-display text-xl font-semibold">Verifiable</span><span className="font-mono text-[9px] text-status-safe">re-hash any record</span></div></div>
+            <div className="flex size-9 items-center justify-center bg-brand/10 text-brand">
+              <CheckCircle2 className="size-4" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Evidence integrity</p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="font-display text-xl font-semibold">Verifiable</span>
+                <span className="font-mono text-[9px] text-status-safe">re-hash any record</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -314,7 +801,13 @@ export function OverviewPage({ scans, openScanner, openCase, navigate, notify, l
   );
 }
 
-function RelayTraceCard({ scans, navigate }: { scans: StoredScan[]; navigate: (page: PageKey) => void }) {
+function RelayTraceCard({
+  scans,
+  navigate,
+}: {
+  scans: StoredScan[];
+  navigate: (page: PageKey) => void;
+}) {
   const latest = scans[0];
   const hops = useMemo(() => {
     if (!latest) return [];
@@ -325,9 +818,26 @@ function RelayTraceCard({ scans, navigate }: { scans: StoredScan[]; navigate: (p
 
   return (
     <Card className="overflow-hidden" labelledBy="trace-heading">
-      <CardHeader id="trace-heading" title="Relay trace reconstruction" subtitle={latest ? `Parsed from ${latest.result.hops.length} real Received header${latest.result.hops.length === 1 ? "" : "s"} — case ${latest.caseId}` : "Parsed from real Received headers"} right={<Button variant="outline" size="sm" onClick={() => navigate("relay")}><Route className="size-3.5" />Open trace</Button>} />
+      <CardHeader
+        id="trace-heading"
+        title="Relay trace reconstruction"
+        subtitle={
+          latest
+            ? `Parsed from ${latest.result.hops.length} real Received header${latest.result.hops.length === 1 ? "" : "s"} — case ${latest.caseId}`
+            : "Parsed from real Received headers"
+        }
+        right={
+          <Button variant="outline" size="sm" onClick={() => navigate("relay")}>
+            <Route className="size-3.5" />
+            Open trace
+          </Button>
+        }
+      />
       {!latest || hops.length === 0 ? (
-        <EmptyState title="No relay trace yet" detail="Analyze an email that includes Received headers to reconstruct its forwarding path." />
+        <EmptyState
+          title="No relay trace yet"
+          detail="Analyze an email that includes Received headers to reconstruct its forwarding path."
+        />
       ) : (
         <div className="space-y-0 p-5">
           {hops.map((hop, index) => {
@@ -338,16 +848,36 @@ function RelayTraceCard({ scans, navigate }: { scans: StoredScan[]; navigate: (p
             return (
               <div key={`${hop.ip}-${index}`} className="relative flex gap-4 pb-6 last:pb-0">
                 {!isLast && <span className="absolute left-[13px] top-7 h-full w-px bg-border" />}
-                <div className={`relative z-10 flex size-7 shrink-0 items-center justify-center border ${isOrigin ? "border-status-critical text-status-critical" : "border-brand text-brand"} bg-surface`}>
-                  {isOrigin ? <AlertTriangle className="size-3.5" /> : isLast ? <Server className="size-3.5" /> : <Network className="size-3.5" />}
+                <div
+                  className={`relative z-10 flex size-7 shrink-0 items-center justify-center border ${isOrigin ? "border-status-critical text-status-critical" : "border-brand text-brand"} bg-surface`}
+                >
+                  {isOrigin ? (
+                    <AlertTriangle className="size-3.5" />
+                  ) : isLast ? (
+                    <Server className="size-3.5" />
+                  ) : (
+                    <Network className="size-3.5" />
+                  )}
                 </div>
                 <div className="min-w-0 pt-0.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xs font-semibold text-foreground">{isOrigin ? "Earliest origin" : isLast ? "Destination MX" : `Relay ${index}`}</p>
-                    <span className="font-mono text-[10px] text-muted-foreground">{hop.detail}</span>
+                    <p className="text-xs font-semibold text-foreground">
+                      {isOrigin ? "Earliest origin" : isLast ? "Destination MX" : `Relay ${index}`}
+                    </p>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {hop.detail}
+                    </span>
                   </div>
-                  <p className={`mt-1 font-mono text-xs ${disclosed ? "text-foreground" : "text-muted-foreground"}`}>{hop.ip}</p>
-                  {hopGeo && <div className="mt-1"><GeoLine geo={hopGeo} compact /></div>}
+                  <p
+                    className={`mt-1 font-mono text-xs ${disclosed ? "text-foreground" : "text-muted-foreground"}`}
+                  >
+                    {hop.ip}
+                  </p>
+                  {hopGeo && (
+                    <div className="mt-1">
+                      <GeoLine geo={hopGeo} compact />
+                    </div>
+                  )}
                   {latest && <InfraChips scan={latest} ip={hop.ip} />}
                 </div>
               </div>
@@ -355,7 +885,8 @@ function RelayTraceCard({ scans, navigate }: { scans: StoredScan[]; navigate: (p
           })}
           <div className="mt-5 flex items-center gap-2 border border-status-warning/20 bg-status-warning/5 px-3 py-2 font-mono text-[10px] text-status-warning">
             <AlertTriangle className="size-3" />
-            Hop IPs are geolocated to city level at scan time; blacklists (Spamhaus ZEN / SpamCop), Tor exit checks, and hosting fingerprints are resolved live per hop.
+            Hop IPs are geolocated to city level at scan time; blacklists (Spamhaus ZEN / SpamCop),
+            Tor exit checks, and hosting fingerprints are resolved live per hop.
           </div>
         </div>
       )}

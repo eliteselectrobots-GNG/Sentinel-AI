@@ -41,6 +41,22 @@
     }
 
     const GMAIL = {
+      /**
+       * True unless we are confidently looking at the inbox/thread list.
+       * Fails open: when nothing is recognised, assume a message is open so
+       * the banner behaves exactly as before this check existed.
+       */
+      isReadingOpen() {
+        const bodyVisible = !!firstVisible(
+          Array.from(document.querySelectorAll('div.a3s, div.ii, h2.hP, h2[data-identifytitle], h1[data-identifytitle]'))
+        );
+        if (bodyVisible) return true;
+        const listVisible = !!firstVisible(
+          Array.from(document.querySelectorAll('tr.zA, div.zA, [role="main"] tr[tabindex][data-tooltip]'))
+        );
+        return !listVisible;
+      },
+
       extractOpen() {
         const main = document.querySelector('div[role="main"]') || document.body;
         const subjectEl = firstVisible(
@@ -154,9 +170,22 @@
         }
         return false;
       },
-    };
+    };    const OUTLOOK = {
 
-    const OUTLOOK = {
+      /** Fails open: suppress the banner only when a mail list row is visible and no body is. */
+      isReadingOpen() {
+        const bodyVisible = !!firstVisible(
+          Array.from(document.querySelectorAll(
+            '[data-testid="message-view-body-content"], [data-testid="message-body"], [role="main"] [role="document"], .rps_90b8'
+          ))
+        );
+        if (bodyVisible) return true;
+        const listVisible = !!firstVisible(
+          Array.from(document.querySelectorAll('[role="main"] [role="option"], [data-testid*="message-list"] [role="option"]'))
+        );
+        return !listVisible;
+      },
+
       extractOpen() {
         const bodyEl = firstVisible(
           Array.from(document.querySelectorAll('[data-testid="message-view-body-content"], [data-testid="message-body"], [role="main"] [role="document"], .rps_90b8'))
@@ -240,6 +269,20 @@
     };
 
     const YAHOO = {
+      /** Fails open: suppress the banner only when a mail list row is visible and no body is. */
+      isReadingOpen() {
+        const bodyVisible = !!firstVisible(
+          Array.from(document.querySelectorAll(
+            '[data-test-id="message-body"], .ymail-body-content, [data-testid="message-body"], .msg-body'
+          ))
+        );
+        if (bodyVisible) return true;
+        const listVisible = !!firstVisible(
+          Array.from(document.querySelectorAll('[data-test-id="virtual-list"] [data-test-id="message-list-item"], .msg-container'))
+        );
+        return !listVisible;
+      },
+
       extractOpen() {
         const bodyEl = firstVisible(
           Array.from(document.querySelectorAll('[data-test-id="message-body"], .ymail-body-content, [data-testid="message-body"], .msg-body'))
@@ -316,6 +359,11 @@
     };
 
     const GENERIC = {
+      // Generic pages have no mail-list concept; keep the previous behaviour.
+      isReadingOpen() {
+        return true;
+      },
+
       extractOpen() {
         const main = document.querySelector("main, [role='main'], article, .content-area") || document.body;
         const subjectEl = firstVisible(Array.from(document.querySelectorAll("main h1, main h2, [role='main'] h2, [role='main'] h1, article h1, article h2")));

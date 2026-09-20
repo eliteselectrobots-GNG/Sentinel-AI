@@ -16,7 +16,11 @@
   let settingsLoaded = false;
 
   const dismissed = new Set();
+  const hoverDismissed = new Set();
   const rowCache = new Map();
+  const rowData = new Map();
+  const hoverFullCache = new Map();
+  const hoverScanning = new Set();
   const processedRows = new WeakSet();
 
   let currentScan = null;
@@ -113,6 +117,23 @@
 .sai-confirm-title{font-size:15px;font-weight:800;color:#fca5a5;margin-bottom:8px}
 .sai-confirm-text{font-size:13px;color:#e2e8f0;margin-bottom:8px}
 .sai-confirm-warn{font-size:12px;color:#94a3b8;margin-bottom:16px}
+/* Hover inspector HUD (list view) */
+.sai-hud{position:fixed;top:14px;right:14px;width:300px;max-width:calc(100vw - 28px);border-radius:14px;padding:12px 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.45;color:#eef2f6;box-shadow:0 18px 50px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.06);animation:saiPop .2s ease;pointer-events:none}
+.sai-hud-none{background:linear-gradient(180deg,#0f1e17,#0a1410);border:1px solid #2dd4a7}
+.sai-hud-critical{background:linear-gradient(180deg,#7f1d1d,#450a0a);border:1px solid #f87171}
+.sai-hud-high{background:linear-gradient(180deg,#7c2d12,#431407);border:1px solid #fdba74}
+.sai-hud-medium{background:linear-gradient(180deg,#713f12,#422006);border:1px solid #fde047}
+.sai-hud-low{background:linear-gradient(180deg,#14532d,#052e16);border:1px solid #86efac}
+.sai-hud-head{display:flex;align-items:center;gap:8px}
+.sai-hud-label{font-size:10px;font-weight:800;letter-spacing:.14em;color:#94a3b8;text-transform:uppercase}
+.sai-hud-sev{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.1)}
+.sai-hud-sev-critical{color:#fecaca}.sai-hud-sev-high{color:#fed7aa}.sai-hud-sev-medium{color:#fef9c3}.sai-hud-sev-low{color:#bbf7d0}
+.sai-hud-sub{font-size:11px;color:#94a3b8;margin-top:2px}
+.sai-hud-subject{font-size:12px;font-weight:700;color:#fff;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sai-hud-score{display:flex;align-items:baseline;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.14)}
+.sai-hud-num{font-size:24px;font-weight:800}
+.sai-hud-denom{font-size:10px;color:#94a3b8}
+.sai-hud-num-critical{color:#fca5a5}.sai-hud-num-high{color:#fdba74}.sai-hud-num-medium{color:#fde047}.sai-hud-num-low{color:#86efac}
 `;
 
   function severityOf(score) {
@@ -128,6 +149,35 @@
     if (settings.sensitivity === "conservative") return score >= 25 || tone !== "safe";
     if (settings.sensitivity === "aggressive") return score >= 55 || tone === "critical" || tone === "warning";
     return score >= 30 || tone !== "safe";
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Trusted senders                                                     */
+  /*                                                                     */
+  /* System mail from major infrastructure providers (security alerts,   */
+  /* sign-in notices, sharing confirmations) trips content heuristics    */
+  /* because it talks about accounts and verification. Suppress the      */
+  /* warning banner for these exact domains — a spoofed From header can  */
+  /* still be caught by the header/auth analysis in the full scan view.  */
+  /* ------------------------------------------------------------------ */
+
+  const TRUSTED_SENDER_DOMAINS = [
+    "google.com", "googlemail.com", "accounts.google.com", "gmail.com",
+    "microsoft.com", "outlook.com", "live.com", "msn.com",
+    "apple.com", "icloud.com", "me.com",
+    "amazon.com", "github.com", "gitlab.com",
+    "linkedin.com", "facebook.com", "instagram.com", "x.com", "twitter.com",
+    "yahoo.com", "ymail.com", "proton.me", "protonmail.com",
+    "stripe.com", "paypal.com", "cloudflare.com", "netflix.com",
+    "notion.so", "slack.com", "zoom.us", "figma.com", "vercel.com",
+  ];
+
+  function isTrustedSender(senderEmail) {
+    const e = String(senderEmail || "").toLowerCase().trim();
+    const at = e.lastIndexOf("@");
+    if (at <= 0) return false;
+    const domain = e.slice(at + 1);
+    return TRUSTED_SENDER_DOMAINS.some((d) => domain === d || domain.endsWith("." + d));
   }
 
   /* ------------------------------------------------------------------ */
@@ -205,15 +255,22 @@
     return severityOf(score);
   }
 
-  function renderBanner(scan) {
+  function renderBanner(scan, opts) {
     if (!settings.enabled) return;
+    const hover = !!(opts && opts.hover);
     const tone = bannerTone(scan.classification.className, scan.result.riskScore);
-    const illuminate = shouldIlluminate(scan.result.riskScore, scan.classification.className);
-    if (!illuminate) {
-      removeBanner();
-      return;
+    if (!hover) {
+      const illuminate = shouldIlluminate(scan.result.riskScore, scan.classification.className);
+      if (!illuminate) {
+        removeBanner();
+        return;
+      }
     }
     ensureHost();
+    if (hover) {
+      const oldHud = host.shadow.querySelector(".sai-hud");
+      if (oldHud) oldHud.remove();
+    }
     const s = scan;
     const title = CLASS_META[s.classification.className]?.label || s.result.riskLabel;
     const mainTone = classTone(s.classification.className);
@@ -229,13 +286,23 @@
 
     const closeBtn = el("button", { class: "sai-x", title: "Dismiss", "aria-label": "Dismiss" }, header);
     closeBtn.textContent = "×";
-    closeBtn.addEventListener("click", () => dismissCurrent());
+    closeBtn.addEventListener("click", () => {
+      if (hover) {
+        removeBanner();
+        maybeRenderHudNone();
+      } else {
+        dismissCurrent();
+      }
+    });
 
     const body = el("div", { class: "sai-banner-body" });
     const isCritical = mainTone === "critical";
-    el("div", { class: `sai-title sai-title-${isCritical ? "critical" : "warn"}` }, body).textContent = isCritical
+    let titleText = isCritical
       ? "⚠ Do not click links or reply to this message"
       : "⚠ Verify before acting on this message";
+    if (hover && tone === "low") titleText = `Looks safe — risk index ${s.result.riskScore}/100`;
+    const titleEl = el("div", { class: `sai-title sai-title-${isCritical ? "critical" : "warn"}` }, body);
+    titleEl.textContent = titleText;
 
     const metaLine = el("div", { class: "sai-meta" }, body);
     metaLine.innerHTML = `<b>${escapeHtml(title)}</b> · ${escapeHtml(s.classification.verdict)}`;
@@ -252,14 +319,24 @@
 
     const actions = el("div", { class: "sai-actions" }, card);
     const precBtn = el("button", { class: "sai-btn sai-btn-ghost", text: "Precaution" }, actions);
-    precBtn.addEventListener("click", () => openModal(s, "precautions"));
     const fullBtn = el("button", { class: "sai-btn sai-btn-ghost", text: "Full analysis" }, actions);
-    fullBtn.addEventListener("click", () => openModal(s, "overview"));
     const safeBtn = el("button", { class: "sai-btn sai-btn-safe", text: "Looks safe" }, actions);
-    safeBtn.addEventListener("click", () => dismissCurrent(true));
+    if (hover) {
+      card.addEventListener("mouseenter", () => cancelBannerDismiss());
+      card.addEventListener("mouseleave", () => scheduleBannerDismiss());
+      precBtn.addEventListener("click", () => openHoverDetail(opts.sig, "precautions"));
+      fullBtn.addEventListener("click", () => openHoverDetail(opts.sig, "overview"));
+      safeBtn.addEventListener("click", () => dismissRow(opts.sig));
+    } else {
+      precBtn.addEventListener("click", () => openModal(s, "precautions"));
+      fullBtn.addEventListener("click", () => openModal(s, "overview"));
+      safeBtn.addEventListener("click", () => dismissCurrent(true));
+    }
     if (tone === "critical" || tone === "high") {
-      const delBtn = el("button", { class: "sai-btn sai-btn-danger", text: "Delete" }, actions);
-      delBtn.addEventListener("click", () => askDelete(s));
+      if (!hover) {
+        const delBtn = el("button", { class: "sai-btn sai-btn-danger", text: "Delete" }, actions);
+        delBtn.addEventListener("click", () => askDelete(s));
+      }
     }
 
     const info = el("div", { class: "sai-info" }, card);
@@ -272,6 +349,289 @@
     if (host.shadow) {
       const existing = host.shadow.querySelector(".sai-banner");
       if (existing) existing.remove();
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Hover inspector HUD (list view)                                     */
+  /*                                                                     */
+  /* Lifecycle: on entering the list view the HUD shows the highest-risk */
+  /* visible row for an intro period (PRIORITY_INTRO_MS), then hands     */
+  /* over to hover mode — it mirrors whichever row the pointer is over,  */
+  /* and drops to a neutral "none" state when the pointer leaves.        */
+  /* ------------------------------------------------------------------ */
+
+  const PRIORITY_INTRO_MS = 8000;
+  let hudMode = "off"; // "off" | "intro" | "hover"
+  let hudIntroTimer = null;
+  let hudHoverSig = null;
+  let bannerDismissTimer = null;
+
+  function hudRowResult(sig) {
+    const res = rowCache.get(sig);
+    if (!res) return null;
+    const max = { score: -1, res: null };
+    for (const r of rowCache.values()) {
+      if (r && r.score > max.score) {
+        max.score = r.score;
+        max.res = r;
+      }
+    }
+    return sig === "__max__" ? max.res : res;
+  }
+
+  function hudSeverity(res) {
+    return res.className && res.className !== "legitimate" && res.score < 30
+      ? "medium"
+      : severityOf(res.score);
+  }
+
+  function renderHud(res) {
+    ensureHost();
+    const shadow = host.shadow;
+    const old = shadow.querySelector(".sai-hud");
+    if (old) old.remove();
+    if (!res) {
+      const box = el("div", { class: "sai-hud sai-hud-none" });
+      const head = el("div", { class: "sai-hud-head" }, box);
+      el("div", { class: "sai-hud-label", text: "No threat selected" }, head);
+      el("div", { class: "sai-hud-sub", text: "None — hover a mail in the list to inspect its risk level." }, box);
+      shadow.appendChild(box);
+      return;
+    }
+    const sev = hudSeverity(res);
+    const drivers = Array.isArray(res.drivers) ? res.drivers.filter((d) => d !== "Missing relay evidence").slice(0, 2) : [];
+    const box = el("div", { class: `sai-hud sai-hud-${sev}` });
+    const head = el("div", { class: "sai-hud-head" }, box);
+    el("div", { class: "sai-hud-label", text: hudMode === "intro" ? "Highest-risk mail" : "Hovered mail" }, head);
+    el("div", { class: `sai-hud-sev sai-hud-sev-${sev}`, text: res.riskLabel || sev }, head);
+    el("div", { class: "sai-hud-subject", text: res.subject || "(no subject)" }, box);
+    el("div", { class: "sai-hud-sub", text: res.sender || res.senderEmail || "" }, box);
+    const score = el("div", { class: "sai-hud-score" }, box);
+    el("div", { class: `sai-hud-num sai-hud-num-${sev}`, text: String(res.score) }, score);
+    el("div", { class: "sai-hud-denom", text: "/100 risk index" }, score);
+    if (drivers.length) {
+      el("div", { class: "sai-hud-sub", text: drivers.join(" · ") }, box);
+    }
+    shadow.appendChild(box);
+  }
+
+  function removeHud() {
+    if (hudIntroTimer) {
+      clearTimeout(hudIntroTimer);
+      hudIntroTimer = null;
+    }
+    hudMode = "off";
+    hudHoverSig = null;
+    if (host.shadow) {
+      const existing = host.shadow.querySelector(".sai-hud");
+      if (existing) existing.remove();
+    }
+  }
+
+  function startHudIntro() {
+    if (hudMode === "intro" || hudMode === "hover") return;
+    const max = hudRowResult("__max__");
+    hudMode = "intro";
+    renderHud(max);
+    if (hudIntroTimer) clearTimeout(hudIntroTimer);
+    hudIntroTimer = setTimeout(() => {
+      hudIntroTimer = null;
+      if (hudMode === "intro") {
+        hudMode = "hover";
+        hudHoverSig = null;
+        renderHud(null); // none state until the analyst hovers a row
+      }
+    }, PRIORITY_INTRO_MS);
+  }
+
+  function hoverScanFromRes(res, sig) {
+    return {
+      classification: {
+        className: res.className || "legitimate",
+        confidence: res.confidence || 50,
+        verdict: res.riskLabel || "Low risk",
+        evidence: (res.drivers || []).map((label) => ({ label, severity: "high", detail: label })),
+        bec: [],
+      },
+      result: {
+        riskScore: res.score || 0,
+        riskLabel: res.riskLabel || "Low",
+        evidenceHash: "row:" + sig,
+        sender: res.sender || "",
+        senderAddress: res.senderEmail || "",
+        subject: res.subject || "",
+      },
+      attribution: {},
+      priority: {},
+      briefing: {},
+      raw: "",
+      iocs: [],
+      domainAnalysis: { domains: new Map() },
+      geo: {},
+      infra: {},
+    };
+  }
+
+  function fullScanForRow(sig) {
+    const row = rowData.get(sig);
+    if (!row) return Promise.resolve(null);
+    return A.scan({
+      provider: provider.name || "gmail",
+      subject: row.subject || "",
+      senderName: row.sender || "",
+      senderEmail: row.senderEmail || "",
+      dateText: "",
+      replyTo: "",
+      bodyText: row.snippet || "",
+      links: [],
+      attachments: [],
+    }).catch(() => null);
+  }
+
+  async function openHoverDetail(sig, fn) {
+    if (hoverScanning.has(sig)) return;
+    hoverScanning.add(sig);
+    try {
+      let scan = hoverFullCache.get(sig);
+      if (!scan) {
+        toast("Running full analysis for this mail...");
+        scan = await fullScanForRow(sig);
+        if (scan) hoverFullCache.set(sig, scan);
+      }
+      if (scan) openModal(scan, fn);
+    } catch {
+      toast("Full analysis is unavailable for this mail.");
+    } finally {
+      hoverScanning.delete(sig);
+    }
+  }
+
+  function dismissRow(sig) {
+    hoverDismissed.add(sig);
+    removeBanner();
+    maybeRenderHudNone();
+    toast("Hover preview dismissed for this mail.");
+  }
+
+  function cancelBannerDismiss() {
+    if (bannerDismissTimer) {
+      clearTimeout(bannerDismissTimer);
+      bannerDismissTimer = null;
+    }
+  }
+
+  function scheduleBannerDismiss() {
+    cancelBannerDismiss();
+    bannerDismissTimer = setTimeout(() => {
+      bannerDismissTimer = null;
+      hudHoverLeave();
+    }, 220);
+  }
+
+  function hideHudNode() {
+    if (host.shadow) {
+      const node = host.shadow.querySelector(".sai-hud");
+      if (node) node.remove();
+    }
+  }
+
+  function maybeRenderHudNone() {
+    if (settings.enabled && settings.listChips) renderHud(null);
+  }
+
+  const scanningHovers = new Set();
+  async function ensureHoverScan(sig) {
+    const row = rowData.get(sig);
+    if (!row || scanningHovers.has(sig)) return;
+    scanningHovers.add(sig);
+    try {
+      const res = await A.prescan(row.subject, row.sender, row.senderEmail, row.snippet);
+      if (res) {
+        rowCache.set(sig, res);
+        bindRowHover(row.rowEl, sig);
+        if (!isTrustedSender(row.senderEmail)) styleRow(row.rowEl, res);
+        if (rowCache.size > 800) {
+          const first = rowCache.keys().next().value;
+          rowCache.delete(first);
+        }
+        sendBadgeList();
+      } else if (hudHoverSig === sig && !hoverDismissed.has(sig)) {
+        removeBanner();
+        maybeRenderHudNone();
+      }
+      if (res && hudHoverSig === sig && !hoverDismissed.has(sig)) {
+        hideHudNode();
+        removeBanner();
+        renderBanner(hoverScanFromRes(res, sig), { hover: true, sig });
+      }
+    } catch {
+      if (hudHoverSig === sig && !hoverDismissed.has(sig)) {
+        removeBanner();
+        maybeRenderHudNone();
+      }
+    } finally {
+      scanningHovers.delete(sig);
+    }
+  }
+
+  function renderRowHover(sig) {
+    hideHudNode();
+    removeBanner();
+    const res = rowCache.get(sig);
+    if (res) {
+      renderBanner(hoverScanFromRes(res, sig), { hover: true, sig });
+      return;
+    }
+    if (!rowData.has(sig)) {
+      maybeRenderHudNone();
+      return;
+    }
+    ensureHost();
+    const box = el("div", { class: "sai-banner sai-low" });
+    const head = el("div", { class: "sai-banner-head" }, box);
+    el("div", { class: "sai-brand", text: "SENTINEL AI" }, head);
+    el("div", { class: "sai-conf", text: "…" }, head);
+    const x = el("button", { class: "sai-x", title: "Dismiss", "aria-label": "Dismiss" }, head);
+    x.textContent = "×";
+    x.addEventListener("click", () => {
+      removeBanner();
+      maybeRenderHudNone();
+    });
+    el("div", { class: "sai-title sai-title-warn", text: "Analyzing this mail…" }, box);
+    host.shadow.appendChild(box);
+    ensureHoverScan(sig);
+  }
+
+  function hudHoverEnter(sig) {
+    if (!settings.enabled) return;
+    if (hoverDismissed.has(sig)) return;
+    cancelBannerDismiss();
+    if (hudIntroTimer) {
+      clearTimeout(hudIntroTimer);
+      hudIntroTimer = null;
+    }
+    hudMode = "hover";
+    hudHoverSig = sig;
+    renderRowHover(sig);
+  }
+
+  function hudHoverLeave() {
+    cancelBannerDismiss();
+    if (hudMode !== "hover") return;
+    hudHoverSig = null;
+    removeBanner();
+    maybeRenderHudNone();
+  }
+
+  function bindRowHover(rowEl, sig) {
+    if (!rowEl) return;
+    if (rowEl.dataset.sentinelSig === sig) return;
+    rowEl.dataset.sentinelSig = sig;
+    if (!rowEl._saiHoverBound) {
+      rowEl._saiHoverBound = true;
+      rowEl.addEventListener("mouseenter", () => hudHoverEnter(rowEl.dataset.sentinelSig));
+      rowEl.addEventListener("mouseleave", () => scheduleBannerDismiss());
     }
   }
 
@@ -718,6 +1078,28 @@
   /* Scan pipeline for the open email                                    */
   /* ------------------------------------------------------------------ */
 
+  /**
+   * True while Gmail is mid-transition between list and reading view. The
+   * extractor would otherwise scrape half-removed DOM (fragments of several
+   * mails mashed together) and produce a nonsense verdict.
+   */
+  function isViewTransitioning() {
+    try {
+      const bodies = document.querySelectorAll("div.a3s:not([hidden])");
+      if (bodies.length === 0) return false;
+      let stable = 0;
+      for (const b of bodies) {
+        if (b.offsetParent !== null || b.getClientRects().length > 0) stable += 1;
+      }
+      // At least one fully-visible body and no more than two candidate bodies
+      // means the pane has settled; extra invisible bodies indicate the old
+      // message is still being torn down.
+      return stable === 0 || document.querySelectorAll("div.a3s").length > 3;
+      } catch {
+      return false;
+    }
+  }
+
   async function scanOpenEmail() {
     if (!settings.enabled) return;
     if (scanInFlight) {
@@ -726,6 +1108,16 @@
     }
     scanInFlight = true;
     try {
+      // Back at the mail list (no message open)? Never scan or show a stale banner.
+      const readingOpen = typeof provider.isReadingOpen === "function" ? provider.isReadingOpen() : true;
+      if (!readingOpen) {
+        currentMode = "list";
+        currentScan = null;
+        removeBanner();
+        scheduleListScan();
+        sendBadgeList();
+        return;
+      }
       const ext = provider.extractOpen();
       const hasContent = (ext.subject || ext.senderEmail || ext.bodyText || ext.links.length > 0 || ext.attachments.length > 0);
       if (!hasContent) {
@@ -736,6 +1128,24 @@
         return;
       }
       currentMode = "email";
+      removeHud();
+      // Ignore mail still animating in/out of the reading pane: the extractor
+      // would scrape half-removed DOM and scan garbage fragments of other mail.
+      if (isViewTransitioning()) {
+        scanInFlight = false;
+        if (pendingScan) {
+          pendingScan = false;
+          setTimeout(() => scanOpenEmail(), 350);
+        }
+        return;
+      }
+      // System mail from trusted infrastructure senders never gets a banner.
+      const fromEmail = String(ext.senderEmail || "").toLowerCase();
+      if (fromEmail && isTrustedSender(fromEmail)) {
+        currentScan = null;
+        removeBanner();
+        return;
+      }
       const scan = await A.scan(ext);
       currentScan = scan;
       if (isDismissed(scan)) {
@@ -797,12 +1207,28 @@
   let idlePending = false;
 
   function scheduleListScan() {
-    if (!settings.enabled || !settings.listChips) return;
+    if (!settings.enabled) return;
     if (listTimer) clearTimeout(listTimer);
     listTimer = setTimeout(() => {
       listTimer = null;
       if (document.visibilityState !== "hidden") queueListScan();
     }, 500);
+  }
+
+  /**
+   * After rows are (re)scanned, decide the HUD lifecycle: start the intro in
+   * list view, or tear the HUD down when a message is open.
+   */
+  function syncHudMode() {
+    if (!settings.enabled || !settings.listChips) {
+      removeHud();
+      return;
+    }
+    if (currentMode === "email") {
+      removeHud();
+      return;
+    }
+    startHudIntro();
   }
 
   function queueListScan() {
@@ -825,13 +1251,17 @@
     }
     if (rows.length === 0) {
       sendBadgeList();
+      removeHud();
       return;
     }
     const queue = [];
     for (const row of rows) {
       const sig = `${row.senderEmail || row.sender || ""}|${row.subject || ""}`;
       if (!sig || sig === "|") continue;
+      rowData.set(sig, row);
+      bindRowHover(row.rowEl, sig);
       if (processedRows.has(row.rowEl)) continue;
+      if (isTrustedSender(row.senderEmail)) continue; // system mail: no chips, no HUD entry
       if (rowCache.has(sig)) {
         if (row.rowEl.dataset.sentinel === undefined) styleRow(row.rowEl, rowCache.get(sig));
         continue;
@@ -846,20 +1276,32 @@
       A.prescan(item.row.subject, item.row.sender, item.row.senderEmail, item.row.snippet).then((res) => {
         if (!res) return;
         rowCache.set(item.sig, res);
+        bindRowHover(item.row.rowEl, item.sig);
         if (rowCache.size > 800) {
           const first = rowCache.keys().next().value;
           rowCache.delete(first);
         }
+        if (rowData.size > 800) {
+          const first = rowData.keys().next().value;
+          rowData.delete(first);
+        }
         styleRow(item.row.rowEl, res);
+        // A cached row may already be the highest-risk one; refresh intro if active.
+        if (hudMode === "intro") renderHud(hudRowResult("__max__"));
         sendBadgeList();
       });
     }
+    syncHudMode();
   }
 
   function styleRow(rowEl, res) {
     if (processedRows.has(rowEl)) return;
     processedRows.add(rowEl);
     if (rowEl.dataset.sentinel) return;
+    if (!settings.listChips) {
+      rowEl.dataset.sentinel = "1";
+      return;
+    }
 
     const sev = severityOf(res.score);
     const visible = res.riskLabel === "Critical" || res.riskLabel === "High" || (res.className && res.className !== "legitimate");
@@ -913,8 +1355,14 @@
             (t === document.body || t.parentElement === document.body)
           ) {
             mailArea = true;
-          } else if (String(t.className || "").indexOf("a3s") !== -1 || String(t.className || "").indexOf("zA") !== -1) {
+          } else if (String(t.className || "").indexOf("a3s") !== -1) {
             mailArea = true;
+          } else if (
+            String(t.className || "").indexOf("zA") !== -1 ||
+            (typeof t.closest === "function" &&
+              !!t.closest('[role="option"], [data-test-id="message-list-item"], .msg-container, [class*="zA"]'))
+          ) {
+            listArea = true;
           }
         }
       }
@@ -957,10 +1405,14 @@
 
   function cleanupAll() {
     removeBanner();
+    removeHud();
     closeModal();
     closeConfirm();
     for (const chip of document.querySelectorAll(".sentinel-ai-chip")) chip.remove();
     rowCache.clear();
+    rowData.clear();
+    hoverFullCache.clear();
+    hoverDismissed.clear();
   }
 
   function loadSettings() {
